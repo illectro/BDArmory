@@ -42,17 +42,17 @@
     <Compile Include="Services\TemperatureDamageService.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="Assembly-CSharp, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="Assembly-CSharp, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>G:\GAMES\KERBAL\Kerbal Space Program_FlightSimulator\KSP_Data\Managed\Assembly-CSharp.dll</HintPath>
+      <HintPath>..\BDArmory\LocalDev\Refs\Assembly-CSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="KSPAssets, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\BDArmory\LocalDev\Refs\KSPAssets.dll</HintPath>
     </Reference>
     <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>G:\GAMES\KERBAL\Kerbal Space Program_FlightSimulator\KSP_Data\Managed\UnityEngine.dll</HintPath>
-    </Reference>
-    <Reference Include="UnityEngine.UI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>G:\GAMES\KERBAL\Kerbal Space Program_FlightSimulator\KSP_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <HintPath>..\BDArmory\LocalDev\Refs\UnityEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

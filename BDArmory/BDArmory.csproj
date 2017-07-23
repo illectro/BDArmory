@@ -440,7 +440,6 @@
     <Content Include="Distribution\GameData\BDArmory\Parts\towMissile\srbsmoke.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\towMissile\tex_towMissile.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\weaponManager\texture.png" />
-    <Content Include="Distribution\GameData\BDArmory\Plugins\BahaTurret.dll" />
     <Content Include="Distribution\GameData\BDArmory\Sounds\armOff.wav" />
     <Content Include="Distribution\GameData\BDArmory\Sounds\armOn.wav" />
     <Content Include="Distribution\GameData\BDArmory\Sounds\bulletHit1.wav" />
@@ -505,6 +504,7 @@
     <Content Include="Distribution\GameData\BDArmory\Textures\whiteSquare.png" />
   </ItemGroup>
   <ItemGroup>
+    <Folder Include="Distribution\GameData\BDArmory\Plugins\" />
     <Folder Include="LocalDev\Refs\" />
   </ItemGroup>
   <PropertyGroup>
