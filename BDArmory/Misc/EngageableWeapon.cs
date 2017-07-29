@@ -5,11 +5,11 @@ namespace BDArmory.Misc
         public bool EngageEnabled = true;
         // Weapon usage settings
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Engage Range Min"),
-         UI_FloatRange(minValue = 0f, maxValue = 100000f, stepIncrement = 500f, scene = UI_Scene.Editor)]
+         UI_FloatRange(minValue = 0f, maxValue = 200000f, stepIncrement = 500f, scene = UI_Scene.Editor)]
         public float engageRangeMin = 0;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Engage Range Max"),
-         UI_FloatRange(minValue = 0f, maxValue = 100000f, stepIncrement = 500f, scene = UI_Scene.Editor)]
+         UI_FloatRange(minValue = 0f, maxValue = 200000f, stepIncrement = 500f, scene = UI_Scene.Editor)]
         public float engageRangeMax = 0;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Engage Air"),
