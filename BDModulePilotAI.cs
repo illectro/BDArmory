@@ -62,21 +62,21 @@ namespace BDArmory.Modules
         Vector3 upDirection = Vector3.up;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_DefaultAltitude"),//Default Alt.
-            UI_FloatRange(minValue = 500f, maxValue = 150000f, stepIncrement = 25f, scene = UI_Scene.All)]
+            UI_FloatRange(minValue = 500f, maxValue = 15000f, stepIncrement = 25f, scene = UI_Scene.All)]
         public float defaultAltitude = 1500;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MinAltitude"),//Min Altitude
-            UI_FloatRange(minValue = 150f, maxValue = 60000, stepIncrement = 50f, scene = UI_Scene.All)]
+            UI_FloatRange(minValue = 150f, maxValue = 6000, stepIncrement = 50f, scene = UI_Scene.All)]
         public float minAltitude = 500f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend Multiplier"),//Extend Distance Multiplier
+         UI_FloatRange(minValue = 0f, maxValue = 2f, stepIncrement = .1f, scene = UI_Scene.All)]
+        public float extendMult = 1f;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_SteerFactor"),//Steer Factor
             UI_FloatRange(minValue = 0.1f, maxValue = 20f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float steerMult = 6;
         //make a combat steer mult and idle steer mult
-
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend Distance Mult"),//Extend Multiplier
-         UI_FloatRange(minValue = 0f, maxValue = 2f, stepIncrement = .1f, scene = UI_Scene.All)]
-        public float extendMult = 1;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_SteerKi"),//Steer Ki
             UI_FloatRange(minValue = 0.01f, maxValue = 1f, stepIncrement = 0.01f, scene = UI_Scene.All)]
@@ -120,8 +120,8 @@ namespace BDArmory.Modules
             UI_Toggle(enabledText = "#LOC_BDArmory_Orbit_enabledText", disabledText = "#LOC_BDArmory_Orbit_disabledText", scene = UI_Scene.All),]//Starboard (CW)--Port (CCW)
         public bool ClockwiseOrbit = true;
 
-        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend", advancedTweakable = true),//Extending 
-         UI_Toggle(enabledText = "Extending enabled", disabledText = "Extending disabled", scene = UI_Scene.All),]
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend Toggle", advancedTweakable = true),//Extend Toggle
+         UI_Toggle(enabledText = "Extend Enabled", disabledText = "Extend Disabled", scene = UI_Scene.All),]
         public bool canExtend = true;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_UnclampTuning", advancedTweakable = true),//Unclamp tuning 
@@ -132,10 +132,10 @@ namespace BDArmory.Modules
         Dictionary<string, float> altMaxValues = new Dictionary<string, float>
         {
             { nameof(defaultAltitude), 100000f },
-            { nameof(minAltitude), 60000f },
+            { nameof(minAltitude), 30000f },
+            { nameof(extendMult), 200f },
             { nameof(steerMult), 200f },
             { nameof(steerKiAdjust), 20f },
-            { nameof(extendMult), 20f },
             { nameof(steerDamping), 100f },
             { nameof(maxSpeed), 3000f },
             { nameof(takeOffSpeed), 2000f },
@@ -1024,7 +1024,7 @@ namespace BDArmory.Modules
                 }
                 else
                 {
-                    extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 150, 4000) * extendMult;
+                    extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 500, 4000) * extendMult;
                 }
 
 
@@ -1045,7 +1045,7 @@ namespace BDArmory.Modules
                     Vector3 targetDirection = srfVector.normalized * extendDistance;
                     Vector3 target = vessel.transform.position + targetDirection;
                     target = GetTerrainSurfacePosition(target) + (vessel.upAxis * Mathf.Min(defaultAltitude, MissileGuidance.GetRaycastRadarAltitude(vesselTransform.position)));
-                    target = FlightPosition(target, (defaultAltitude * extendMult));
+                    target = FlightPosition(target, (defaultAltitude * extendMult);
                     if (regainEnergy)
                     {
                         RegainEnergy(s, target - vesselTransform.position);
@@ -1280,7 +1280,7 @@ namespace BDArmory.Modules
 
             float rise = Mathf.Clamp((float)vessel.srfSpeed * 0.215f, 5, 100);
 
-            if (radarAlt > 70 || (vessel.altitude < vessel.terrainAltitude) || vessel.Splashed)
+            if (radarAlt > 70)
             {
                 vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
             }
@@ -1568,12 +1568,7 @@ namespace BDArmory.Modules
             {
                 diveAngleCorrection = 0;
             }
-            // ****** REMOVE ******
-            if(vessel.mainBody.bodyName == "Jool")
-            {
-                minAltitude = 40000f;
-                defaultAltitude = 60000f;
-            }
+
             return Math.Max(minAltitude, 100 + turnRadius * diveAngleCorrection);
         }
 
