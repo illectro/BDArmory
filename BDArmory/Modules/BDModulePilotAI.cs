@@ -1515,7 +1515,6 @@ namespace BDArmory.Modules
             maxLiftAcceleration *= (float)vessel.dynamicPressurekPa;       //maximum acceleration from lift that the vehicle can provide
 
             maxLiftAcceleration = Math.Min(maxLiftAcceleration, maxAllowedGForce * 9.81f);       //limit it to whichever is smaller, what we can provide or what we can handle
-            maxLiftAcceleration = maxAllowedGForce * 9.81f;
 
             if (maxLiftAcceleration > 0)
                 turnRadius = (float)vessel.Velocity().sqrMagnitude / maxLiftAcceleration;     //radius that we can turn in assuming constant velocity, assuming simple circular motion
