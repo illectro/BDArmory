@@ -50,10 +50,9 @@ namespace BDArmory.UI
 
 		private Vessel SpawnVessel(VesselData vesselData, List<ProtoCrewMember> crewData = null)
 		{
-			string gameDataDir = KSPUtil.ApplicationRootPath;
 			Debug.Log("Spawning a vessel named '" + vesselData.name + "'");
 
-			// Set additional info for landed vessels
+			//Set additional info for landed vessels
 			bool landed = false;
 			if (!vesselData.orbiting)
 			{
@@ -62,9 +61,9 @@ namespace BDArmory.UI
 				{
 					vesselData.altitude = 35;//LocationUtil.TerrainHeight(vesselData.latitude, vesselData.longitude, vesselData.body);
 				}
-
+			
 				Vector3d pos = vesselData.body.GetRelSurfacePosition(vesselData.latitude, vesselData.longitude, vesselData.altitude.Value);
-
+			
 				vesselData.orbit = new Orbit(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, vesselData.body);
 				vesselData.orbit.UpdateFromStateVectors(pos, vesselData.body.getRFrmVel(pos), vesselData.body, Planetarium.GetUniversalTime());
 			}

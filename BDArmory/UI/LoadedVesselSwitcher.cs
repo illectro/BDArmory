@@ -273,7 +273,6 @@ namespace BDArmory.UI
                                     {
                                         if (wm.Current == null) continue;
                                         allPilots.Add(wm.Current);
-
                                     }
 
                         foreach (var pilot in allPilots)
