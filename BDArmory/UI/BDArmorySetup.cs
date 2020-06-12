@@ -1397,6 +1397,8 @@ namespace BDArmory.UI
             BDArmorySettings.BULLET_DECALS = GUI.Toggle(SLeftRect(line), BDArmorySettings.BULLET_DECALS, Localizer.Format("#LOC_BDArmory_Settings_BulletHoleDecals"));//"Bullet Hole Decals"
             BDArmorySettings.PERFORMANCE_LOGGING = GUI.Toggle(SRightRect(line), BDArmorySettings.PERFORMANCE_LOGGING, Localizer.Format("#LOC_BDArmory_Settings_PerformanceLogging"));//"Performance Logging"
             line++;
+            BDArmorySettings.SPAWN_VESSELS = GUI.Toggle(SRightRect(line), BDArmorySettings.SPAWN_VESSELS, "Auto Spawn Vessels");
+            line++;
             if (HighLogic.LoadedSceneIsEditor)
             {
                 if (BDArmorySettings.SHOW_CATEGORIES != (BDArmorySettings.SHOW_CATEGORIES = GUI.Toggle(SLeftRect(line), BDArmorySettings.SHOW_CATEGORIES, Localizer.Format("#LOC_BDArmory_Settings_ShowEditorSubcategories"))))//"Show Editor Subcategories"
@@ -1503,10 +1505,9 @@ namespace BDArmory.UI
 
                     if (GUI.Button(SRightRect(line), Localizer.Format("#LOC_BDArmory_Settings_StartCompetition")))//"Start Competition"
                     {
-
                         competitionDist = Mathf.Max(competitionDist, 0);
                         compDistGui = competitionDist.ToString();
-                        BDACompetitionMode.Instance.StartCompetitionMode(competitionDist);
+                        BDACompetitionMode.Instance.StartCompetitionMode(competitionDist, BDArmorySettings.SPAWN_VESSELS);
                         SaveConfig();
                         windowSettingsEnabled = false;
                     }

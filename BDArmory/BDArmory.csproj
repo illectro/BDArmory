@@ -226,6 +226,7 @@
     <Compile Include="Control\BDACompetitionMode.cs" />
     <Compile Include="UI\IBDWMModule.cs" />
     <Compile Include="UI\KrakensbaneDebug.cs" />
+    <Compile Include="UI\VesselSpawner.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BDArmory.Core\BDArmory.Core.csproj">
