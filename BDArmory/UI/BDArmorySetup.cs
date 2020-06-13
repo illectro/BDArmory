@@ -1397,7 +1397,7 @@ namespace BDArmory.UI
             BDArmorySettings.BULLET_DECALS = GUI.Toggle(SLeftRect(line), BDArmorySettings.BULLET_DECALS, Localizer.Format("#LOC_BDArmory_Settings_BulletHoleDecals"));//"Bullet Hole Decals"
             BDArmorySettings.PERFORMANCE_LOGGING = GUI.Toggle(SRightRect(line), BDArmorySettings.PERFORMANCE_LOGGING, Localizer.Format("#LOC_BDArmory_Settings_PerformanceLogging"));//"Performance Logging"
             line++;
-            BDArmorySettings.SPAWN_VESSELS = GUI.Toggle(SRightRect(line), BDArmorySettings.SPAWN_VESSELS, "Auto Spawn Vessels");
+            BDArmorySettings.SPAWN_VESSELS = GUI.Toggle(SLeftRect(line), BDArmorySettings.SPAWN_VESSELS, "Auto Spawn Vessels");
             line++;
             if (HighLogic.LoadedSceneIsEditor)
             {

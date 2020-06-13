@@ -6,6 +6,7 @@ using BDArmory.Control;
 using UnityEngine;
 using KSP.Localization;
 using System;
+using System.Linq;
 using BDArmory.Core;
 
 namespace BDArmory.UI
@@ -337,8 +338,6 @@ namespace BDArmory.UI
                 _wmToSwitchTeam = null;
             }
 
-
-
             if (GUI.Button(new Rect(_windowWidth - _buttonHeight - _margin, 4, _buttonHeight, _buttonHeight), "X",
                 BDArmorySetup.BDGuiSkin.button))
             {
@@ -517,7 +516,6 @@ namespace BDArmory.UI
                                 }
                             }
 
-
                             // boom
                             Rect killButtonRect = new Rect(_margin + vesselButtonWidth + 5 * _buttonHeight, height, _buttonHeight, _buttonHeight);
                             GUIStyle xStyle = new GUIStyle(BDArmorySetup.BDGuiSkin.button);
@@ -675,8 +673,6 @@ namespace BDArmory.UI
         public void UpdateCamera()
         {
             double timeSinceLastCheck = Planetarium.GetUniversalTime() - lastCameraCheck;
-
-
             if (timeSinceLastCheck > 0.25)
             {
                 lastCameraCheck = Planetarium.GetUniversalTime();
@@ -699,121 +695,102 @@ namespace BDArmory.UI
                 float bestScore = 10000000;
                 Vessel bestVessel = null;
                 bool foundActiveVessel = false;
+                
                 // redo the math
-                List<Vessel>.Enumerator v = FlightGlobals.Vessels.GetEnumerator();
-                // check all the planes
-                while (v.MoveNext())
+                foreach (var v in FlightGlobals.Vessels.Where(v => v != null && v.loaded))
                 {
-                    if (v.Current == null || !v.Current.loaded || v.Current.packed)
-                        continue;
-                    using (var wms = v.Current.FindPartModulesImplementing<MissileFire>().GetEnumerator())
-                        while (wms.MoveNext())
-                            if (wms.Current != null && wms.Current.vessel != null)
+                    foreach (var wms in v.FindPartModulesImplementing<MissileFire>().Where(wms => wms != null && wms.vessel != null))
+                    {
+                        float vesselScore = 1000;
+                        float targetDistance = 5000 + (float) (rng.NextDouble() * 100.0);
+                        string vesselName = v.GetName();
+                        
+                        // avoid lingering on dying things
+                        bool recentlyDamaged = false;
+
+                        // check for damage & landed status
+
+                        if (BDACompetitionMode.Instance.Scores.ContainsKey(vesselName))
+                        {
+                            var currentParts = v.parts.Count;
+                            var vdat = BDACompetitionMode.Instance.Scores[vesselName];
+                            if (currentParts < vdat.previousPartCount)
                             {
-                                float vesselScore = 1000;
-                                float targetDistance = 5000 + (float) (rng.NextDouble() * 100.0);
-                                float crashTime = 30;
-                                string vesselName = v.Current.GetName();
-                                // avoid lingering on dying things
-                                bool recentlyDamaged = false;
-                                bool recentlyLanded = false;
-
-                                // check for damage & landed status
-
-                                if (BDACompetitionMode.Instance.Scores.ContainsKey(vesselName))
-                                {
-                                    var currentParts = v.Current.parts.Count;
-                                    var vdat = BDACompetitionMode.Instance.Scores[vesselName];
-                                    if (currentParts < vdat.previousPartCount)
-                                    {
-                                        recentlyDamaged = true;
-                                    }
-
-                                    if (vdat.landedState)
-                                    {
-                                        var timeSinceLanded = Planetarium.GetUniversalTime() - vdat.lastLandedTime;
-                                        if (timeSinceLanded < 2)
-                                        {
-                                            recentlyLanded = true;
-                                        }
-                                    }
-                                }
-
-                                vesselScore = Math.Abs(vesselScore);
-
-                                if (!recentlyLanded && v.Current.verticalSpeed < -5)
-                                {
-                                    crashTime = (float) (-Math.Abs(v.Current.radarAltitude) / v.Current.verticalSpeed);
-                                }
-
-                                if (wms.Current.currentTarget != null)
-                                {
-                                    targetDistance = Vector3.Distance(wms.Current.vessel.GetWorldPos3D(), wms.Current.currentTarget.position);
-                                }
-
-                                vesselScore *= targetDistance / 1000;
-                                if (crashTime < 30)
-                                {
-                                    vesselScore *= crashTime / 30;
-                                }
-
-                                if (wms.Current.currentGun != null)
-                                {
-                                    if (wms.Current.currentGun.recentlyFiring)
-                                    {
-                                        // shooting at things is more interesting
-                                        vesselScore *= 0.25f;
-                                    }
-                                }
-
-                                // scoring for automagic camera check should not be in here
-                                if (wms.Current.underAttack || wms.Current.underFire)
-                                {
-                                    vesselScore *= 0.5f;
-                                    var distance = Vector3.Distance(wms.Current.vessel.GetWorldPos3D(), wms.Current.incomingThreatPosition);
-                                    vesselScore *= distance / 1000;
-                                    //we're very interested when threat and target are the same
-                                    if (wms.Current.incomingThreatVessel != null && wms.Current.currentTarget != null)
-                                    {
-                                        if (wms.Current.incomingThreatVessel.GetName() == wms.Current.currentTarget.Vessel.GetName())
-                                        {
-                                            vesselScore *= 0.25f;
-                                        }
-                                    }
-
-                                }
-                                else if (wms.Current.isFlaring)
-                                {
-                                    vesselScore *= 0.5f;
-                                }
-
-                                if (recentlyDamaged)
-                                {
-                                    vesselScore *= 0.3f; // because taking hits is very interesting;
-                                }
-
-                                if (!recentlyLanded && wms.Current.vessel.LandedOrSplashed)
-                                {
-                                    vesselScore *= 3; // not interesting.
-                                }
-
-                                // if we're the active vessel add a penalty over time to force it to switch away eventually
-                                if (wms.Current.vessel.isActiveVessel)
-                                {
-                                    vesselScore = (float) (vesselScore * timeSinceChange / 8.0);
-                                    foundActiveVessel = true;
-                                }
-
-
-                                // if the score is better then update this
-                                if (vesselScore < bestScore)
-                                {
-                                    bestVessel = wms.Current.vessel;
-                                    bestScore = vesselScore;
-                                }
-
-                                cameraScores[wms.Current.vessel.GetName()] = vesselScore;
+                                recentlyDamaged = true;
                             }
+                        }
+
+                        vesselScore = Math.Abs(vesselScore);
+
+                        // going down fastish, and going to hit in 2.5 seconds
+                        var timeToImpact = -Math.Abs(v.radarAltitude) / v.verticalSpeed;
+                        if (v.verticalSpeed < -20 && timeToImpact < 2.5)
+                        {
+                            vesselScore *= (float)timeToImpact / 100f;
+                        }
+
+                        if (wms.currentTarget != null)
+                        {
+                            targetDistance = Vector3.Distance(wms.vessel.GetWorldPos3D(), wms.currentTarget.position);
+                        }
+
+                        vesselScore *= targetDistance / 1000;
+
+                        if (wms.currentGun != null)
+                        {
+                            if (wms.currentGun.recentlyFiring)
+                            {
+                                // shooting at things is more interesting
+                                vesselScore *= 0.25f;
+                            }
+                        }
+
+                        // scoring for automagic camera check should not be in here
+                        if (wms.underAttack || wms.underFire)
+                        {
+                            vesselScore *= 0.5f;
+                            var distance = Vector3.Distance(wms.vessel.GetWorldPos3D(), wms.incomingThreatPosition);
+                            vesselScore *= distance / 1000;
+                            //we're very interested when threat and target are the same
+                            if (wms.incomingThreatVessel != null && wms.currentTarget != null)
+                            {
+                                if (wms.incomingThreatVessel.GetName() == wms.currentTarget.Vessel.GetName())
+                                {
+                                    vesselScore *= 0.25f;
+                                }
+                            }
+                        }
+                        else if (wms.isFlaring)
+                        {
+                            vesselScore *= 0.5f;
+                        }
+
+                        if (recentlyDamaged)
+                        {
+                            vesselScore *= 0.3f; // because taking hits is very interesting;
+                        }
+
+                        if (wms.vessel.LandedOrSplashed)
+                        {
+                            vesselScore *= 3; // not interesting.
+                        }
+
+                        // if we're the active vessel add a penalty over time to force it to switch away eventually
+                        if (wms.vessel.isActiveVessel)
+                        {
+                            vesselScore = (float) (vesselScore * timeSinceChange / 8.0);
+                            foundActiveVessel = true;
+                        }
+
+                        // if the score is better then update this
+                        if (vesselScore < bestScore)
+                        {
+                            bestVessel = wms.vessel;
+                            bestScore = vesselScore;
+                        }
+
+                        cameraScores[wms.vessel.GetName()] = vesselScore; 
+                    }
                 }
 
                 if (!foundActiveVessel)

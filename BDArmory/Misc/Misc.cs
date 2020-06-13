@@ -359,10 +359,9 @@ namespace BDArmory.Misc
             foreach (MissileFire missileFire in v.FindPartModulesImplementing<MissileFire>())
             {
                 PartExploderSystem.AddPartToExplode(missileFire.part);
-                ExplosionFx.CreateExplosion(missileFire.part.transform.position, 0.2f, explModelPath, explSoundPath, true, 0, missileFire.part);
+                ExplosionFx.CreateExplosion(missileFire.part.transform.position, 50f, explModelPath, explSoundPath, true, 0, missileFire.part);
             }
         }
-
 
         // borrowed from SmartParts - activate the next stage on a vessel
         public static void fireNextNonEmptyStage(Vessel v)
