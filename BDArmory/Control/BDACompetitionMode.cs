@@ -1466,9 +1466,6 @@ namespace BDArmory.Control
                     // check everyone who's no longer alive
                     if (!alive.Contains(key))
                     {
-                        Scores[key].lastPersonWhoHitMe = "";
-                        Scores[key].whoGotCleanKill = "";
-                        Scores[key].everyoneWhoHitMe.Clear();
                         if (craftUrls.TryGetValue(key, out var craftUrl))
                         {
                             StartCoroutine(SpawnCraftRoutine(craftUrl, key));
