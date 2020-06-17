@@ -299,8 +299,8 @@ namespace BDArmory.Control
 
             foreach (var pilot in readyToLaunch)
             {
-                //pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
                 BDArmory.Misc.Misc.fireNextNonEmptyStage(pilot.vessel);
+                pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
                 pilot.CommandTakeOff();
                 if (pilot.weaponManager.guardMode)
                 {
@@ -631,8 +631,8 @@ namespace BDArmory.Control
 
                     if (pilot != null && pilot.weaponManager)
                     {
-                        //pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
                         BDArmory.Misc.Misc.fireNextNonEmptyStage(pilot.vessel);
+                        pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
                         pilot.CommandTakeOff();
                         if (!pilot.weaponManager.guardMode)
                         {
@@ -1276,15 +1276,6 @@ namespace BDArmory.Control
                         {
                             KillVessel(mf.vessel, "debris, or not in scores");
                         }
-                        else if (BDArmorySettings.SPAWN_VESSELS && ammoIds.All(i =>
-                            {
-                                v.GetConnectedResourceTotals(i, out var amount, out var max);
-                                return amount < .00001;
-                            }))
-                        {
-                            KillVessel(mf.vessel, "no ammo");
-                            competitionStatus = vesselName + " killed: no ammo";
-                        }
                         else
                         {
                             var killReason = "none";
@@ -1298,6 +1289,15 @@ namespace BDArmory.Control
                             {
                                 shouldKillThis = true;
                                 killReason = "no fuel";
+                            }
+                            else if (BDArmorySettings.SPAWN_VESSELS && ammoIds.All(i =>
+                                {
+                                    v.GetConnectedResourceTotals(i, out var amount, out var max);
+                                    return amount < .00001;
+                                }))
+                            {
+                                shouldKillThis = true;
+                                killReason = "no ammo";
                             }
                             else if (FlightGlobals.FindNearestControllableVessel(v) != null && Vector3.Distance(v.GetWorldPos3D(), FlightGlobals.FindNearestControllableVessel(v).GetWorldPos3D()) > 3500)
                             {
@@ -1322,7 +1322,7 @@ namespace BDArmory.Control
                                     KillTimer[vesselName] -= updateTickLength;
                                 }
                             
-                                if (KillTimer[vesselName] > (BDArmorySettings.SPAWN_VESSELS ? 6 : 15))
+                                if (KillTimer[vesselName] > (BDArmorySettings.SPAWN_VESSELS ? 8 : 15))
                                 {
                                     KillVessel(mf.vessel, killReason);
                                     competitionStatus = vesselName + " exceeded kill timer: " + killReason;
