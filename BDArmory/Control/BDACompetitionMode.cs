@@ -8,6 +8,7 @@ using BDArmory.Core;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using BDArmory.UI;
+using Smooth.Delegates;
 using UnityEngine;
 
 namespace BDArmory.Control
@@ -1278,14 +1279,19 @@ namespace BDArmory.Control
                         }
                         else
                         {
+                            var couldKillNow = KillTimer.TryGetValue(vesselName, out var curKillTimer) && curKillTimer > (BDArmorySettings.SPAWN_VESSELS ? 6 : 15);
+                            
                             var killReason = "none";
                             var shouldKillThis = false;
                             if (v.Landed || v.Splashed)
                             {
-                                shouldKillThis = true;
-                                killReason = "landed";
+                                if (!couldKillNow || v.checkLanded() || v.checkSplashed())
+                                {
+                                    shouldKillThis = true;
+                                    killReason = "landed";
+                                }
                             }
-                            else if (BDArmorySettings.SPAWN_VESSELS && v.VesselDeltaV != null && v.VesselDeltaV.TotalDeltaVActual < .000001)
+                            else if (BDArmorySettings.SPAWN_VESSELS && v.VesselDeltaV != null && v.VesselDeltaV.IsReady &&  v.VesselDeltaV.TotalDeltaVActual < .000001)
                             {
                                 shouldKillThis = true;
                                 killReason = "no fuel";
@@ -1310,31 +1316,21 @@ namespace BDArmory.Control
                                 killReason = "too far away from avg";
                             }
                             
-                            // 15 second time until kill, maybe they recover?
-                            if (KillTimer.ContainsKey(vesselName))
+                            if (shouldKillThis)
                             {
-                                if (shouldKillThis)
-                                {
-                                    KillTimer[vesselName] += updateTickLength;
-                                }
-                                else
-                                {
-                                    KillTimer[vesselName] -= updateTickLength;
-                                }
-                            
-                                if (KillTimer[vesselName] > (BDArmorySettings.SPAWN_VESSELS ? 8 : 15))
+                                if (couldKillNow)
                                 {
                                     KillVessel(mf.vessel, killReason);
                                     competitionStatus = vesselName + " exceeded kill timer: " + killReason;
                                 }
-                                else if (KillTimer[vesselName] < 0)
+                                else
                                 {
-                                    KillTimer.Remove(vesselName);
+                                    KillTimer[vesselName] = curKillTimer + updateTickLength;
                                 }
                             }
-                            else if (shouldKillThis)
+                            else
                             {
-                                KillTimer[vesselName] = updateTickLength;
+                                KillTimer.Remove(vesselName);
                             }
                         }
                     }
