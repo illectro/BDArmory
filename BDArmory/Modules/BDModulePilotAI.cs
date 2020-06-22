@@ -20,22 +20,6 @@ namespace BDArmory.Modules
 
         SteerModes steerMode = SteerModes.NormalFlight;
 
-        bool belowMinAltitude;
-        // bool belowMinAltitudeReported = false;
-        bool initialTakeOff = true;
-        // float minAltReachedWhileGainingAlt;
-        // float startAltWhileGainingAlt = 0.0f;
-        // float startDiveAngleCorrectionWhileGainingAlt; // 1-cos(theta)
-        float turnRadiusTwiddleFactor = 2.0f; // 2 seems to be a good starting point for decently maneuverable planes. This twiddle factor accounts for how long the AI twiddles it's thumbs (spinning, evading, etc.) while avoiding the ground.
-        public enum GainAltReason { None, BelowMinAltitude, DivingTooLow, TerrainAhead, VesselAhead };
-        GainAltReason gainAltReason = GainAltReason.None;
-        float terrainAlertThreatRange;
-        float terrainAlertDistance = -1.0f; // Distance to terrain intercept.
-        Vector3 terrainAlertDirection; // Terrain slope in the direction of the velocity at the terrain intercept.
-        Vector3 terrainAlertNormal; // Approximate surface normal at the terrain intercept.
-        Vector3 terrainAlertCorrectionDirection; // The direction to go to avoid the terrain.
-        float terrainAlertCoolDown = 0; // Cool down period before allowing other special modes to take effect (currently just "orbitting").
-
         bool extending;
 
         bool requestedExtend;
@@ -228,10 +212,30 @@ namespace BDArmory.Modules
         bool useBrakes = true;
         bool regainEnergy = false;
 
-        //collision detection
-        int collisionDetectionTicker;
-        float collisionDetectionTimer;
+        //collision detection (for other vessels)
+        float vesselCollisionAvoidancePeriod = 2.0f; // Avoid for 2s.
+        int vesselCollisionAvoidanceTickerFreq = 20; // Number of frames between vessel-vessel collision checks.
+        int collisionDetectionTicker = 0;
+        float collisionDetectionTimer = 0;
         Vector3 collisionAvoidDirection;
+
+        // Terrain avoidance and below minimum altitude globals.
+        int terrainAlertTicker = 0; // A ticker to reduce the frequency of terrain alert checks.
+        bool belowMinAltitude; // True when below minAltitude or avoiding terrain.
+        bool gainAltInhibited = false; // Inhibit gain altitude to minimum altitude when chasing or evading someone as long as we're pointing upwards.
+        bool avoidingTerrain = false; // True when avoiding terrain.
+        bool initialTakeOff = true; // False after the initial take-off.
+        float terrainAlertDetectionRadius = 30.0f; // Sphere radius that the vessel occupies. Should cover most vessels. FIXME This could be based on the vessel's maximum width/height.
+        float terrainAlertThreatRange; // The distance to the terrain to consider (based on turn radius).
+        float terrainAlertDistance; // Distance to the terrain.
+        Vector3 terrainAlertNormal; // Approximate surface normal at the terrain intercept.
+        Vector3 terrainAlertDirection; // Terrain slope in the direction of the velocity at the terrain intercept.
+        Vector3 terrainAlertCorrectionDirection; // The direction to go to avoid the terrain.
+        float terrainAlertCoolDown = 0; // Cool down period before allowing other special modes to take effect (currently just "orbitting").
+        Vector3 relativeVelocityRightDirection; // Right relative to current velocity and upDirection.
+        Vector3 relativeVelocityDownDirection; // Down relative to current velocity and upDirection.
+        float turnRadiusTwiddleFactorMin = 2.0f; // Minimum twiddle factor for the turn radius. Depends on roll rate and how the vessel behaves under fire. FIXME This could be a slider for the user to set.
+        float turnRadiusTwiddleFactorMax = 4.0f; // Maximum twiddle factor for the turn radius. Depends on roll rate and how the vessel behaves under fire. FIXME This could be a slider for the user to set.
 
         //wing command
         bool useRollHint;
@@ -241,6 +245,8 @@ namespace BDArmory.Modules
         Vector3d commandHeading;
 
         float finalMaxSteer = 1;
+
+        public bool outOfAmmo = false; // Indicator for being out of ammo. Set in competition mode only.
 
         #region RMB info in editor
 
@@ -290,6 +296,8 @@ namespace BDArmory.Modules
 
             belowMinAltitude = vessel.LandedOrSplashed;
             prevTargetDir = vesselTransform.up;
+            if (initialTakeOff && !vessel.LandedOrSplashed) // In case we activate pilot after taking off manually.
+                initialTakeOff = false;
         }
 
         void Update()
@@ -388,94 +396,55 @@ namespace BDArmory.Modules
             upDirection = VectorUtils.GetUpDirection(vessel.transform.position);
 
             CalculateAccelerationAndTurningCircle();
-            float minAltNeeded = MinAltitudeNeeded();
-            debugString.Append($"minAltNeeded: {minAltNeeded}");
-            debugString.Append(Environment.NewLine);
 
-            if ((float)vessel.radarAltitude < minAltNeeded)
-            {
-                belowMinAltitude = true;
+            if ((float)vessel.radarAltitude < minAltitude)
+            { belowMinAltitude = true; }
+
+            if (gainAltInhibited && (!belowMinAltitude || !(currentStatus == "Engaging" || currentStatus == "Evading" || currentStatus.StartsWith("Gain Alt"))))
+            { // Allow switching between "Engaging", "Evading" and "Gain Alt." while below minimum altitude without disabling the gain altitude inhibitor.
+                gainAltInhibited = false;
+                // Debug.Log("DEBUG " + vessel.vesselName + " is no longer inhibiting gain alt");
+            }
+
+            if (!gainAltInhibited && belowMinAltitude && (currentStatus == "Engaging" || currentStatus == "Evading"))
+            { // Vessel went below minimum altitude while "Engaging" or "Evading", enable the gain altitude inhibitor.
+                gainAltInhibited = true;
+                // Debug.Log("DEBUG " + vessel.vesselName + " was " + currentStatus + " and went below min altitude, inhibiting gain alt.");
             }
 
             if (vessel.srfSpeed < minSpeed)
-            {
-                regainEnergy = true;
-            }
+            { regainEnergy = true; }
             else if (!belowMinAltitude && vessel.srfSpeed > Mathf.Min(minSpeed + 20f, idleSpeed))
-            {
-                regainEnergy = false;
-            }
+            { regainEnergy = false; }
 
-            if (belowMinAltitude)
+            UpdateVelocityRelativeDirections();
+            CheckLandingGear();
+            if (!vessel.LandedOrSplashed && (FlyAvoidTerrain(s) || FlyAvoidOthers(s)))
+            { turningTimer = 0; }
+            else if (belowMinAltitude && !(gainAltInhibited && Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, vessel.upAxis) > 0)) // If we're below minimum altitude, gain altitude unless we're being inhibited and gaining altitude.
             {
                 if (command != PilotCommands.Follow)
                 {
-                    switch (gainAltReason)
-                    {
-                        case GainAltReason.BelowMinAltitude:
-                            currentStatus = "Gain Alt. (" + (int)minAltitude + "m)";
-                            break;
-                        case GainAltReason.DivingTooLow:
-                            currentStatus = "Gain Alt. (diving " + (int)vessel.radarAltitude + "m)";
-                            break;
-                        case GainAltReason.TerrainAhead:
-                            currentStatus = "Terrain (" + (int)terrainAlertDistance + "m)";
-                            break;
-                        case GainAltReason.VesselAhead:
-                            currentStatus = "Avoiding others";
-                            break;
-                        default:
-                            currentStatus = "Gain Alt.";
-                            break;
-                    }
+                    TakeOff(s);
+                    turningTimer = 0;
                 }
-                // if (!vessel.LandedOrSplashed && !belowMinAltitudeReported)
-                // {
-                //     belowMinAltitudeReported = true; // Only report once, per "gain alt" event. Also, the rest of this should only be updated at the start of the "gain alt".
-                //     startAltWhileGainingAlt = (float)vessel.radarAltitude;
-                //     minAltReachedWhileGainingAlt = startAltWhileGainingAlt;
-
-                // switch (gainAltReason)
-                // {
-                //     case GainAltReason.BelowMinAltitude:
-                //         Debug.Log("[BDArmory] " + vessel.vesselName + " is below minimum altitude.");
-                //         break;
-                //     case GainAltReason.DivingTooLow:
-                //         float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, vessel.upAxis)); // sin(th) (measured from horizontal with positive upwards)
-                //         float oneMinusCosTheta = 1.0f - (float)Mathf.Sqrt(Math.Max(0.0f, 1.0f - sinTheta * sinTheta));
-                //         startDiveAngleCorrectionWhileGainingAlt = oneMinusCosTheta;
-                //         Vector3 projectedDirection = Vector3.ProjectOnPlane(vesselTransform.up, upDirection).normalized;
-                //         Vector3 projectedPositionAtMinimum = vessel.transform.position + projectedDirection * turnRadiusTwiddleFactor * turnRadius * sinTheta - (turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta) * upDirection;
-                //         float predictedMinAltitude = MissileGuidance.GetRadarAltitudeAtPos(projectedPositionAtMinimum);
-                //         Debug.Log("[BDArmory] " + vessel.vesselName + " is diving too low! Start altitude: " + startAltWhileGainingAlt + ", predicted min altitude: " + predictedMinAltitude);
-                //         break;
-                //     case GainAltReason.TerrainAhead:
-                //         Debug.Log("[BDArmory] " + vessel.vesselName + " has terrain ahead in " + terrainAlertDistance + "!");
-                //         break;
-                //     default:
-                //         break;
-                // }
-                // }
-                TakeOff(s);
-                turningTimer = 0;
             }
             else
             {
-                if (FlyAvoidCollision(s))
-                {
-                    turningTimer = 0;
-                }
-                else if (command != PilotCommands.Free)
-                {
-                    UpdateCommand(s);
-                }
+                if (command != PilotCommands.Free)
+                { UpdateCommand(s); }
                 else
-                {
-                    UpdateAI(s);
-                }
+                { UpdateAI(s); }
             }
             UpdateGAndAoALimits(s);
             AdjustPitchForGAndAoALimits(s);
+
+            // Perform the check here since we're now allowing evading/engaging while below mininum altitude.
+            if (belowMinAltitude && vessel.radarAltitude > minAltitude && Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, vessel.upAxis) > 0) // We're good.
+            {
+                terrainAlertCoolDown = 1.0f; // 1s cool down after avoiding terrain or gaining altitude. (Only used for delaying "orbitting" for now.)
+                belowMinAltitude = false;
+            }
         }
 
         void UpdateAI(FlightCtrlState s)
@@ -535,7 +504,7 @@ namespace BDArmory.Modules
                 if (evasiveTimer > 3)
                 {
                     evasiveTimer = 0;
-                    collisionDetectionTicker = 21; //check for collision again after exiting evasion routine
+                    collisionDetectionTicker = vesselCollisionAvoidanceTickerFreq + 1; //check for collision again after exiting evasion routine
                 }
             }
             else if (!extending && weaponManager && targetVessel != null && targetVessel.transform != null)
@@ -623,69 +592,6 @@ namespace BDArmory.Modules
             }
         }
 
-        bool FlyAvoidCollision(FlightCtrlState s)
-        {
-            return false; // FIXME
-            if (collisionDetectionTimer > 2)
-            {
-                collisionDetectionTimer = 0;
-                collisionDetectionTicker = 20;
-            }
-            if (collisionDetectionTimer > 0)
-            {
-                //fly avoid
-                currentStatus = "AvoidCollision";
-                debugString.Append($"Avoiding Collision");
-                debugString.Append(Environment.NewLine);
-                collisionDetectionTimer += Time.fixedDeltaTime;
-
-                Vector3 target = vesselTransform.position + collisionAvoidDirection;
-                FlyToPosition(s, target);
-                return true;
-            }
-            else if (collisionDetectionTicker > 20)
-            {
-                collisionDetectionTicker = 0;
-                bool avoid = false;
-                Vector3 badDirection;
-                if (DetectCollision(flyingToPosition - vesselTransform.position, out badDirection))
-                {
-                    avoid = true;
-                }
-                else if (command != PilotCommands.Follow) //check collisions with other flying vessels
-                {
-                    List<Vessel>.Enumerator vs = BDATargetManager.LoadedVessels.GetEnumerator();
-                    while (vs.MoveNext())
-                    {
-                        if (vs.Current == null) continue;
-                        if (vs.Current == vessel || vs.Current.Landed ||
-                            !(Vector3.Dot(vs.Current.transform.position - vesselTransform.position,
-                                  vesselTransform.up) > 0)) continue;
-                        if (!PredictCollisionWithVessel(vs.Current, 2.5f, 0.5f, out badDirection)) continue;
-                        // the 'isLeadingFormation' check was bad anyway, as releasing one member would unset it, while still having other followers, moving it here
-                        if (vs.Current.FindPartModuleImplementing<IBDAIControl>()?.commandLeader?.vessel == vessel) continue;
-                        avoid = true;
-                        break;
-                    }
-                    vs.Dispose();
-                }
-
-                if (!avoid) return false;
-                collisionDetectionTimer += Time.fixedDeltaTime;
-                Vector3 axis = -Vector3.Cross(vesselTransform.up, badDirection);
-                collisionAvoidDirection = Quaternion.AngleAxis(25, axis) * badDirection;        //don't need to change the angle that much to avoid, and it should prevent stupid suicidal manuevers as well
-
-                FlyAvoidCollision(s);
-                return true;
-            }
-            else
-            {
-                collisionDetectionTicker++;
-            }
-
-            return false;
-        }
-
         bool PredictCollisionWithVessel(Vessel v, float maxTime, float interval, out Vector3 badDirection)
         {
             if (vessel == null || v == null || v == weaponManager?.incomingMissileVessel
@@ -695,7 +601,7 @@ namespace BDArmory.Modules
                 return false;
             }
 
-            float time = Mathf.Min(0.5f, maxTime);
+            float time = Mathf.Min(interval, maxTime);
             while (time < maxTime)
             {
                 Vector3 tPos = AIUtils.PredictPosition(v, time);
@@ -915,7 +821,7 @@ namespace BDArmory.Modules
 
         void FlyToPosition(FlightCtrlState s, Vector3 targetPosition)
         {
-            if (!belowMinAltitude)
+            if (!belowMinAltitude) // Includes avoidingTerrain
             {
                 if (weaponManager && Time.time - weaponManager.timeBombReleased < 1.5f)
                 {
@@ -1023,7 +929,7 @@ namespace BDArmory.Modules
             //
             if (belowMinAltitude)
             {
-                if (gainAltReason == GainAltReason.TerrainAhead)
+                if (avoidingTerrain)
                     rollTarget = terrainAlertNormal * 100;
                 else
                     rollTarget = vessel.upAxis * 100;
@@ -1234,18 +1140,18 @@ namespace BDArmory.Modules
                     Vector3 breakTarget = threatRelativePosition * 2f;       //for the most part, we want to turn _towards_ the threat in order to increase the rel ang vel and get under its guns
 
                     if (threatDirectionFactor > 0.9f)     //within 28 degrees in front
-                    {
+                    { // This adds +-1 to the left or right relative to the breakTarget vector, regardless of the size of breakTarget (that seems wrong)
                         breakTarget += Vector3.Cross(threatRelativePosition.normalized, Mathf.Sign(Mathf.Sin((float)vessel.missionTime / 2)) * vessel.upAxis);
                         debugString.Append($" from directly ahead!");
                     }
                     else if (threatDirectionFactor < -0.9) //within ~28 degrees behind
                     {
-                        float threatDistance = threatRelativePosition.magnitude;
-                        if (threatDistance > 400)
-                        {
+                        float threatDistanceSqr = threatRelativePosition.sqrMagnitude;
+                        if (threatDistanceSqr > 400 * 400)
+                        { // This sets breakTarget 1500m ahead and 500m down, then adds a 1000m offset at 90° to ahead based on missionTime. If the target is kinda close, brakes are also applied.
                             breakTarget = vesselTransform.position + vesselTransform.up * 1500 - 500 * vessel.upAxis;
                             breakTarget += Mathf.Sin((float)vessel.missionTime / 2) * vesselTransform.right * 1000 - Mathf.Cos((float)vessel.missionTime / 2) * vesselTransform.forward * 1000;
-                            if (threatDistance > 800)
+                            if (threatDistanceSqr > 800 * 800)
                                 debugString.Append($" from behind afar; engaging barrel roll");
                             else
                             {
@@ -1255,7 +1161,7 @@ namespace BDArmory.Modules
                             }
                         }
                         else
-                        {
+                        { // This set breakTarget to the attackers position, then applies an up to 500m offset to the right or left (relative to the vessel) for the first 1.5s, then sets the breakTarget to be 150m right or left of the attacker.
                             breakTarget = threatRelativePosition;
                             if (evasiveTimer < 1.5f)
                                 breakTarget += Mathf.Sin((float)vessel.missionTime * 2) * vesselTransform.right * 500;
@@ -1268,15 +1174,15 @@ namespace BDArmory.Modules
                     }
                     else
                     {
-                        float threatDistance = threatRelativePosition.magnitude;
-                        if (threatDistance < 400)
-                        {
+                        float threatDistanceSqr = threatRelativePosition.sqrMagnitude;
+                        if (threatDistanceSqr < 400 * 400) // Within 400m to the side.
+                        { // This sets breakTarget to be behind the attacker (relative to the evader) with a small offset to the left or right.
                             breakTarget += Mathf.Sin((float)vessel.missionTime * 2) * vesselTransform.right * 100;
 
                             steerMode = SteerModes.Aiming;
                         }
-                        else
-                        {
+                        else // More than 400m to the side.
+                        { // This sets breakTarget to be 1500m ahead, then adds a 1000m offset at 90° to ahead.
                             breakTarget = vesselTransform.position + vesselTransform.up * 1500;
                             breakTarget += Mathf.Sin((float)vessel.missionTime / 2) * vesselTransform.right * 1000 - Mathf.Cos((float)vessel.missionTime / 2) * vesselTransform.forward * 1000;
                             debugString.Append($" from far side; engaging barrel roll");
@@ -1288,6 +1194,12 @@ namespace BDArmory.Modules
                         breakTarget += threatAltitudeDiff * vessel.upAxis;      //if it's trying to spike us from below, don't go crazy trying to dive below it
                     else
                         breakTarget += -150 * vessel.upAxis;   //dive a bit to escape
+
+                    float breakTargetVerticalComponent = Vector3.Dot(breakTarget - vessel.transform.position, upDirection);
+                    if (belowMinAltitude && breakTargetVerticalComponent < 0) // If we're below minimum altitude, enforce the evade direction to gain altitude.
+                    {
+                        breakTarget += -2f * breakTargetVerticalComponent * upDirection;
+                    }
 
                     FlyToPosition(s, breakTarget);
                     return;
@@ -1322,6 +1234,23 @@ namespace BDArmory.Modules
             FlyToPosition(s, target);
         }
 
+        void UpdateVelocityRelativeDirections() // Vectors that are used in TakeOff and FlyAvoidTerrain.
+        {
+            relativeVelocityRightDirection = Vector3.Cross(upDirection, vessel.srf_vel_direction).normalized;
+            relativeVelocityDownDirection = Vector3.Cross(relativeVelocityRightDirection, vessel.srf_vel_direction).normalized;
+        }
+
+        void CheckLandingGear()
+        {
+            if (!vessel.LandedOrSplashed)
+            {
+                if (vessel.radarAltitude > 50.0f)
+                    vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
+                else
+                    vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
+            }
+        }
+
         void TakeOff(FlightCtrlState s)
         {
             debugString.Append($"Taking off/Gaining altitude");
@@ -1329,78 +1258,187 @@ namespace BDArmory.Modules
 
             if (vessel.LandedOrSplashed && vessel.srfSpeed < takeOffSpeed)
             {
+                currentStatus = initialTakeOff ? "Taking off" : vessel.Splashed ? "Splashed" : "Landed";
                 if (vessel.Splashed)
-                {
-                    vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
-                }
+                { vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false); }
                 assignedPositionWorld = vessel.transform.position;
                 return;
             }
+            currentStatus = "Gain Alt. (" + (int)minAltitude + "m)";
 
             steerMode = SteerModes.Aiming;
 
             float radarAlt = (float)vessel.radarAltitude;
 
-            if (radarAlt > 70 || (vessel.altitude < vessel.terrainAltitude) || vessel.Splashed)
-                vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, false);
-            else
-                vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
+            if (initialTakeOff && radarAlt > terrainAlertDetectionRadius)
+                initialTakeOff = false;
 
-            if (gainAltReason == GainAltReason.TerrainAhead || gainAltReason == GainAltReason.VesselAhead && !vessel.LandedOrSplashed)
+            // Get surface normal relative to our velocity direction below the vessel and where the vessel is heading.
+            RaycastHit rayHit;
+            Vector3 forwardDirection = (vessel.horizontalSrfSpeed < 10 ? vesselTransform.up : (Vector3)vessel.srf_vel_direction) * 100; // Forward direction not adjusted for terrain.
+            Vector3 forwardPoint = vessel.transform.position + forwardDirection * 100; // Forward point not adjusted for terrain.
+            Ray ray = new Ray(forwardPoint, relativeVelocityDownDirection); // Check ahead and below.
+            Vector3 terrainBelowAheadNormal = (Physics.Raycast(ray, out rayHit, minAltitude + 1.0f, 1 << 15)) ? rayHit.normal : upDirection; // Terrain normal below point ahead.
+            ray = new Ray(vessel.transform.position, relativeVelocityDownDirection); // Check here below.
+            Vector3 terrainBelowNormal = (Physics.Raycast(ray, out rayHit, minAltitude + 1.0f, 1 << 15)) ? rayHit.normal : upDirection; // Terrain normal below here.
+            Vector3 normalToUse = Vector3.Dot(vessel.srf_vel_direction, terrainBelowNormal) < Vector3.Dot(vessel.srf_vel_direction, terrainBelowAheadNormal) ? terrainBelowNormal : terrainBelowAheadNormal; // Use the normal that has the steepest slope relative to our velocity.
+            forwardPoint = vessel.transform.position + Vector3.ProjectOnPlane(forwardDirection, normalToUse).normalized * 100; // Forward point adjusted for terrain.
+            float rise = Mathf.Clamp((float)vessel.srfSpeed * 0.215f, 5, 100); // Up to 45° rise angle above terrain changes at 465m/s.
+            FlyToPosition(s, forwardPoint + upDirection * rise);
+        }
+
+        bool FlyAvoidTerrain(FlightCtrlState s) // Check for terrain ahead.
+        {
+            if (initialTakeOff) return false; // Don't do anything during the initial take-off.
+
+            ++terrainAlertTicker;
+            int terrainAlertTickerThreshold = BDArmorySettings.TERRAIN_ALERT_FREQUENCY * (int)(1 + Mathf.Pow((float)vessel.radarAltitude / 500.0f, 2.0f) / Mathf.Max(1.0f, (float)vessel.srfSpeed / 150.0f)); // Scale with altitude^2 / speed.
+            if (terrainAlertTicker >= terrainAlertTickerThreshold)
             {
-                float adjustmentFactor = Mathf.Pow((terrainAlertThreatRange - terrainAlertDistance) / terrainAlertThreatRange, 2.0f);
-                // First, aim up to 90° towards the surface normal.
-                Vector3 correctionDirection = Vector3.RotateTowards(terrainAlertDirection, terrainAlertNormal, 90.0f * Mathf.Deg2Rad * adjustmentFactor, 0.0f);
-                // Then, adjust the vertical pitch for our speed.
-                // correctionDirection = Vector3.RotateTowards(correctionDirection, upDirection, ((float)vessel.srfSpeed - 100.0f) / 10.0f * Mathf.Deg2Rad, 0.0f);
-                float alpha = Time.deltaTime;
-                terrainAlertCorrectionDirection = (1 - alpha) * terrainAlertCorrectionDirection + alpha * correctionDirection; // Update our target direction over several frames.
-                FlyToPosition(s, vessel.transform.position + terrainAlertCorrectionDirection * 100);
-            }
-            else
-            {
-                // Get surface normal relative to our velocity direction below the vessel and where the vessel is heading.
+                terrainAlertTicker = 0;
+
+                // Reset/initialise some variables.
+                if (!avoidingTerrain)
+                    terrainAlertCorrectionDirection = vessel.srf_vel_direction; // Start out with the correction being nothing.
+                avoidingTerrain = false; // Reset the alert.
+                if (vessel.radarAltitude > minAltitude)
+                    belowMinAltitude = false; // Also, reset the belowMinAltitude alert if it's active because of avoiding terrain.
+                terrainAlertDistance = -1.0f; // Reset the terrain alert distance.
+                float turnRadiusTwiddleFactor = turnRadiusTwiddleFactorMax; // A twiddle factor based on the orientation of the vessel, since it often takes considerable time to re-orient before avoiding the terrain. Start with the worst value.
+                terrainAlertThreatRange = 150.0f + turnRadiusTwiddleFactor * turnRadius; // The distance to the terrain to consider.
+
+                // First, look 45° down, up, left and right from our velocity direction for immediate danger. (This should cover most immediate dangers.)
+                Ray rayForwardUp = new Ray(vessel.transform.position, (vessel.srf_vel_direction - relativeVelocityDownDirection).normalized);
+                Ray rayForwardDown = new Ray(vessel.transform.position, (vessel.srf_vel_direction + relativeVelocityDownDirection).normalized);
+                Ray rayForwardLeft = new Ray(vessel.transform.position, (vessel.srf_vel_direction - relativeVelocityRightDirection).normalized);
+                Ray rayForwardRight = new Ray(vessel.transform.position, (vessel.srf_vel_direction + relativeVelocityRightDirection).normalized);
                 RaycastHit rayHit;
-                Vector3 relativeDownDirection = Vector3.Cross(Vector3.Cross(upDirection, vessel.srf_vel_direction), vessel.srf_vel_direction).normalized;
-                Vector3 forwardPoint = vessel.transform.position + (vessel.horizontalSrfSpeed < 10 ? vesselTransform.up : (Vector3)vessel.srf_vel_direction) * 100; // Forward point not adjusted for terrain.
-                Ray ray = new Ray(forwardPoint, relativeDownDirection); // Check ahead and below.
-                Vector3 terrainBelowAheadNormal = (Physics.Raycast(ray, out rayHit, terrainAlertDistance + 1.0f, 1 << 15)) ? rayHit.normal : upDirection; // Terrain normal below point ahead.
-                ray = new Ray(vessel.transform.position, relativeDownDirection); // Check here below.
-                Vector3 terrainBelowNormal = (Physics.Raycast(ray, out rayHit, terrainAlertDistance + 1.0f, 1 << 15)) ? rayHit.normal : upDirection; // Terrain normal below here.
-                forwardPoint = vessel.transform.position + Vector3.ProjectOnPlane(forwardPoint, Vector3.Dot(upDirection, terrainBelowAheadNormal) > Vector3.Dot(upDirection, terrainBelowNormal) ? terrainBelowAheadNormal : terrainBelowNormal).normalized * 100; // Forward point adjusted for terrain (using the steepest of here or ahead).
-                float rise = Mathf.Clamp((float)vessel.srfSpeed * 0.215f, 5, 100); // Up to 45° rise angle above terrain changes at 465m/s.
-                FlyToPosition(s, forwardPoint + upDirection * rise);
+                if (Physics.Raycast(rayForwardDown, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15)) // sqrt(2) should be sufficient, so 1.5 will cover it.
+                {
+                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertNormal = rayHit.normal;
+                }
+                if (Physics.Raycast(rayForwardUp, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
+                {
+                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertNormal = rayHit.normal;
+                }
+                if (Physics.Raycast(rayForwardLeft, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
+                {
+                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertNormal = rayHit.normal;
+                }
+                if (Physics.Raycast(rayForwardDown, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
+                {
+                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertNormal = rayHit.normal;
+                }
+                if (terrainAlertDistance > 0)
+                {
+                    terrainAlertDirection = Vector3.ProjectOnPlane(vessel.srf_vel_direction, terrainAlertNormal).normalized;
+                    avoidingTerrain = true;
+                }
+                else
+                {
+                    // Next, cast a sphere forwards to check for upcoming dangers.
+                    Ray ray = new Ray(vessel.transform.position, vessel.srf_vel_direction);
+                    if (Physics.SphereCast(ray, terrainAlertDetectionRadius, out rayHit, terrainAlertThreatRange, 1 << 15)) // Found something. 
+                    {
+                        // Check if there's anything directly ahead.
+                        ray = new Ray(vessel.transform.position, vessel.srf_vel_direction);
+                        terrainAlertDistance = rayHit.distance;
+                        terrainAlertNormal = rayHit.normal;
+                        if (!Physics.Raycast(ray, out rayHit, terrainAlertThreatRange, 1 << 15)) // Nothing directly ahead, so we're just barely avoiding terrain.
+                        {
+                            // Change the terrain normal and direction as we want to just fly over it instead of banking away from it.
+                            terrainAlertNormal = upDirection;
+                            terrainAlertDirection = vessel.srf_vel_direction;
+                        }
+                        else
+                        { terrainAlertDirection = (vessel.srf_vel_direction - Vector3.Dot(vessel.srf_vel_direction, terrainAlertNormal) * terrainAlertNormal).normalized; }
+                        float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, terrainAlertNormal)); // sin(theta) (measured relative to the plane of the surface).
+                        float oneMinusCosTheta = 1.0f - Mathf.Sqrt(Math.Max(0.0f, 1.0f - sinTheta * sinTheta));
+                        turnRadiusTwiddleFactor = (turnRadiusTwiddleFactorMin + turnRadiusTwiddleFactorMax) / 2.0f - (turnRadiusTwiddleFactorMax - turnRadiusTwiddleFactorMin) / 2.0f * Vector3.Dot(terrainAlertNormal, -vessel.transform.forward); // This would depend on roll rate (i.e., how quickly the vessel can reorient itself to perform the terrain avoidance maneuver) and probably other things.
+                        if (terrainAlertDistance < 150.0f + turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta) // Only do something about it if the estimated turn amount is a problem.
+                        { avoidingTerrain = true; }
+                    }
+                }
             }
 
-
-            bool exitCondition = true;
-
-            switch (gainAltReason)
+            if (avoidingTerrain)
             {
-                case GainAltReason.BelowMinAltitude:
-                case GainAltReason.DivingTooLow:
-                    exitCondition = radarAlt > minAltitude && Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, vessel.upAxis) > 0; // Above minimum altitude and pointing upwards.
-                    break;
-                case GainAltReason.TerrainAhead:
-                    exitCondition = terrainAlertDistance < 0.0f; // Not intercepting terrain.
-                    break;
-                default:
-                    break;
-            }
-            if (exitCondition)
-            {
-                belowMinAltitude = false;
-                // belowMinAltitudeReported = false;
-                gainAltReason = GainAltReason.None;
-                terrainAlertCoolDown = 2.0f; // 2s cool down after avoiding terrain.
-                // float oldTwiddleFactor = turnRadiusTwiddleFactor;
+                belowMinAltitude = true; // Inform other parts of the code to behave as if we're below minimum altitude.
+                float maxAngle = 70.0f * Mathf.Deg2Rad; // Maximum angle (towards surface normal) to aim.
+                float adjustmentFactor = Mathf.Clamp(1.0f - Mathf.Pow(terrainAlertDistance / terrainAlertThreatRange, 2.0f), 0.0f, 1.0f); // Don't yank too hard as it kills our speed too much.
+                // First, aim up to maxAngle towards the surface normal.
+                Vector3 correctionDirection = Vector3.RotateTowards(terrainAlertDirection, terrainAlertNormal, maxAngle * adjustmentFactor, 0.0f);
+                // Then, adjust the vertical pitch for our speed (to try to avoid stalling).
+                Vector3 horizontalCorrectionDirection = Vector3.ProjectOnPlane(correctionDirection, upDirection).normalized;
+                correctionDirection = Vector3.RotateTowards(correctionDirection, horizontalCorrectionDirection, Mathf.Max(0.0f, (1.0f - (float)vessel.srfSpeed / 120.0f) * maxAngle * Mathf.Deg2Rad) * adjustmentFactor, 0.0f); // Rotate up to maxAngle back towards horizontal depending on speed < 120m/s.
+                float alpha = Time.deltaTime;
+                float beta = Mathf.Pow(1.0f - alpha, terrainAlertTickerThreshold);
+                terrainAlertCorrectionDirection = (beta * terrainAlertCorrectionDirection + (1.0f - beta) * correctionDirection).normalized; // Update our target direction over several frames. (Expansion of N iterations of A = A*(1-a) + B*a. Not exact due to normalisation in the loop, but good enough.)
+                FlyToPosition(s, vessel.transform.position + terrainAlertCorrectionDirection * 100);
 
-                // if (gainAltReason != GainAltReason.TerrainAhead && startAltWhileGainingAlt > minAltReachedWhileGainingAlt && startDiveAngleCorrectionWhileGainingAlt > 0.004f) // Ignore adjustments from shallow (~5°) "gain alt"s.
-                // {
-                //     turnRadiusTwiddleFactor = 0.9f * turnRadiusTwiddleFactor + 0.1f * ((startAltWhileGainingAlt - minAltReachedWhileGainingAlt) / startDiveAngleCorrectionWhileGainingAlt) / turnRadius; // Adjust the twiddle factor based on how well the plane actually turned (using exponential averaging).
-                //     Debug.Log("[BDArmory] " + vessel.vesselName + " reached " + minAltReachedWhileGainingAlt + ". Measured turn radius was " + ((startAltWhileGainingAlt - minAltReachedWhileGainingAlt) / startDiveAngleCorrectionWhileGainingAlt) + ", calculated turn radius was " + turnRadius + ". Adjusting twiddle factor from " + oldTwiddleFactor + " to " + turnRadiusTwiddleFactor);
-                // }
+                // Update status and book keeping.
+                currentStatus = "Terrain (" + (int)terrainAlertDistance + "m)";
+                terrainAlertCoolDown = 1.0f; // 1s cool down after avoiding terrain or gaining altitude. (Only used for delaying "orbitting" for now.)
+                return true;
             }
+
+            // Hurray, we've avoided the terrain!
+            avoidingTerrain = false;
+            return false;
+        }
+
+        bool FlyAvoidOthers(FlightCtrlState s) // Check for collisions with other vessels and try to avoid them.
+        { // Mostly a re-hash of FlyAvoidCollision, but with terrain detection removed.
+            if (collisionDetectionTimer > vesselCollisionAvoidancePeriod)
+            {
+                collisionDetectionTimer = 0;
+                collisionDetectionTicker = vesselCollisionAvoidanceTickerFreq;
+            }
+            if (collisionDetectionTimer > 0)
+            {
+                //fly avoid
+                currentStatus = "AvoidCollision";
+                debugString.Append($"Avoiding Collision");
+                debugString.Append(Environment.NewLine);
+                collisionDetectionTimer += Time.fixedDeltaTime;
+
+                Vector3 target = vesselTransform.position + collisionAvoidDirection;
+                FlyToPosition(s, target);
+                return true;
+            }
+            else if (collisionDetectionTicker > vesselCollisionAvoidanceTickerFreq) // Only check every vesselCollisionAvoidanceTickerFreq frames.
+            {
+                collisionDetectionTicker = 0;
+
+                // Check for collisions with other vessels.
+                bool vesselCollision = false;
+                Vector3 collisionAvoidDirection = vessel.srf_vel_direction;
+                List<Vessel>.Enumerator vs = BDATargetManager.LoadedVessels.GetEnumerator();
+                while (vs.MoveNext())
+                {
+                    if (vs.Current == null) continue;
+                    if (vs.Current == vessel || vs.Current.Landed || !(Vector3.Dot(vs.Current.transform.position - vesselTransform.position, vesselTransform.up) > 0)) continue;
+                    if (!PredictCollisionWithVessel(vs.Current, vesselCollisionAvoidancePeriod + vesselCollisionAvoidanceTickerFreq * Time.deltaTime, 50.0f / Mathf.Max((float)vessel.srfSpeed, 100.0f), out collisionAvoidDirection)) continue; // Adjust "interval" parameter based on vessel speed.
+                    if (vs.Current.FindPartModuleImplementing<IBDAIControl>()?.commandLeader?.vessel == vessel) continue;
+                    vesselCollision = true;
+                    break; // Early exit on first detected vessel collision. Chances of multiple vessel collisions are low.
+                }
+                vs.Dispose();
+                if (vesselCollision)
+                {
+                    Vector3 axis = -Vector3.Cross(vesselTransform.up, collisionAvoidDirection);
+                    collisionAvoidDirection = Quaternion.AngleAxis(25, axis) * collisionAvoidDirection;        //don't need to change the angle that much to avoid, and it should prevent stupid suicidal manuevers as well
+                    collisionDetectionTimer += Time.fixedDeltaTime;
+                    return FlyAvoidOthers(s); // Call ourself again to trigger the actual avoidance.
+                }
+            }
+            else
+            { ++collisionDetectionTicker; }
+            return false;
         }
 
         Vector3 GetLimitedClimbDirectionForSpeed(Vector3 direction)
@@ -1486,13 +1524,6 @@ namespace BDArmory.Modules
             dynMaxVelocityMagSqr *= 0.999615f; // Decay the max recorded squared velocity at the same rate as the dynamic pressure G-force decays to keep the turnRadius constant if they otherwise haven't changed.
             if (!vessel.LandedOrSplashed && (float)vessel.Velocity().sqrMagnitude > dynMaxVelocityMagSqr)
                 dynMaxVelocityMagSqr = (float)vessel.Velocity().sqrMagnitude;
-
-            // if (!vessel.LandedOrSplashed && belowMinAltitude)
-            // {
-            //     float radarAlt = (float)vessel.radarAltitude;
-            //     if (radarAlt < minAltReachedWhileGainingAlt)
-            //         minAltReachedWhileGainingAlt = radarAlt; // As long as we're not on the ground, measure the minimum altitude reached while below minimum altitude (this gets reset when "gain alt" activates).
-            // }
 
             float aoADiff = cosAoAAtMaxPosG - cosAoAAtMaxNegG;
 
@@ -1665,134 +1696,6 @@ namespace BDArmory.Modules
 
             turnRadius = dynMaxVelocityMagSqr / maxLiftAcceleration; //radius that we can turn in assuming constant velocity, assuming simple circular motion (this is a terrible assumption, the AI usually turns on afterboosters!)
         }
-
-        float MinAltitudeNeeded() // min altitude adjusted for G limits and terrain
-        {
-            if (initialTakeOff && vessel.radarAltitude > 50)
-                initialTakeOff = false;
-
-            // If we're on the ground or taking off, don't check for other stuff.
-            if (vessel.LandedOrSplashed || initialTakeOff) // Initial take-off.
-            {
-                gainAltReason = GainAltReason.None;
-                return minAltitude;
-            }
-
-            // Check for diving too low. For this we use the altitude at the projected minimum instead of where we are.
-            // float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.srf_velocity / vessel.srfSpeed, vessel.upAxis)); // sin(th) (measured from horizontal with positive upwards)
-            // if (sinTheta < 0.0f)
-            // {
-            //     float oneMinusCosTheta = 1.0f - (float)Mathf.Sqrt(Math.Max(0.0f, 1.0f - sinTheta * sinTheta));
-            //     Vector3 projectedDirection = Vector3.ProjectOnPlane(vesselTransform.up, upDirection).normalized;
-            //     Vector3 projectedPositionAtMinimum = vessel.transform.position + projectedDirection * turnRadiusTwiddleFactor * turnRadius * sinTheta - (turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta) * upDirection;
-            //     float predictedMinAltitude = MissileGuidance.GetRadarAltitudeAtPos(projectedPositionAtMinimum);
-            //     if (predictedMinAltitude < 150.0f) // We're diving too low!
-            //     {
-            //         gainAltReason = GainAltReason.DivingTooLow;
-            //         return 150.0f + turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta;
-            //     }
-            // }
-
-            // Check for terrain ahead.
-            terrainAlertDistance = -1.0f; // First reset the alert.
-            terrainAlertThreatRange = 150.0f + turnRadiusTwiddleFactor * turnRadius; // The distance to the terrain to consider. TODO tweak this, maybe include twiddle parameter to learn.
-            float detectionRadius = 30.0f; // Should cover most vessels.
-            RaycastHit rayHit;
-            if (gainAltReason != GainAltReason.TerrainAhead)
-                terrainAlertCorrectionDirection = vessel.srf_vel_direction; // Start out with the correction being nothing.
-
-            // First, look 45° down, left and right from our velocity direction for immediate danger. (This should cover most immediate dangers.)
-            Vector3 relativeRightDirection = Vector3.Cross(upDirection, vessel.srf_vel_direction).normalized;
-            Vector3 relativeDownDirection = Vector3.Cross(relativeRightDirection, vessel.srf_vel_direction).normalized;
-            Ray rayForwardDown = new Ray(vessel.transform.position, (vessel.srf_vel_direction + relativeDownDirection).normalized);
-            Ray rayForwardLeft = new Ray(vessel.transform.position, (vessel.srf_vel_direction - relativeRightDirection).normalized);
-            Ray rayForwardRight = new Ray(vessel.transform.position, (vessel.srf_vel_direction + relativeRightDirection).normalized);
-            if(Physics.Raycast(rayForwardDown, out rayHit, 1.5f * detectionRadius, 1 << 15)) // sqrt(2) should be sufficient, so 1.5 will cover it.
-            {
-                terrainAlertDistance = rayHit.distance;
-                terrainAlertNormal = rayHit.normal;
-            }
-            if(Physics.Raycast(rayForwardLeft, out rayHit, 1.5f * detectionRadius, 1 << 15) && rayHit.distance < terrainAlertDistance)
-            {
-                terrainAlertDistance = rayHit.distance;
-                terrainAlertNormal = rayHit.normal;
-            }
-            if(Physics.Raycast(rayForwardDown, out rayHit, 1.5f * detectionRadius, 1 << 15) && rayHit.distance < terrainAlertDistance)
-            {
-                terrainAlertDistance = rayHit.distance;
-                terrainAlertNormal = rayHit.normal;
-            }
-            if (terrainAlertDistance > 0)
-            {
-                gainAltReason = GainAltReason.TerrainAhead;
-                terrainAlertDirection = Vector3.ProjectOnPlane(vessel.srf_vel_direction, terrainAlertNormal).normalized;
-                return minAltitude;
-            }
-
-            // Next, cast a sphere forwards to check for upcoming dangers.
-            Ray ray = new Ray(vessel.transform.position, vessel.srf_vel_direction);
-            if (Physics.SphereCast(ray, detectionRadius, out rayHit, terrainAlertThreatRange, 1 << 15)) // Found something. 
-            {
-                // Check if there's anything directly ahead.
-                ray = new Ray(vessel.transform.position, vessel.srf_vel_direction);
-                terrainAlertDistance = rayHit.distance;
-                terrainAlertNormal = rayHit.normal;
-                if (!Physics.Raycast(ray, out rayHit, terrainAlertThreatRange, 1 << 15)) // Nothing directly ahead, so we're just barely avoiding terrain.
-                {
-                    // Change the terrain normal and direction as we want to just fly over it instead of banking away from it.
-                    terrainAlertNormal = upDirection;
-                    terrainAlertDirection = vessel.srf_vel_direction;
-                }
-                else
-                    terrainAlertDirection = (vessel.srf_vel_direction - Vector3.Dot(vessel.srf_vel_direction, terrainAlertNormal) * terrainAlertNormal).normalized;
-                float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, terrainAlertNormal)); // sin(theta) (measured relative to the plane of the surface).
-                float oneMinusCosTheta = 1.0f - Mathf.Sqrt(Math.Max(0.0f, 1.0f - sinTheta * sinTheta));
-                if (terrainAlertDistance < 150.0f + turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta) // Only do something about it if the estimated turn amount is a problem.
-                {
-                    gainAltReason = GainAltReason.TerrainAhead;
-                    belowMinAltitude = true;
-                    return minAltitude;
-                }
-            }
-
-            // Check for collisions with other vessels.
-            bool vesselCollision = false;
-            Vector3 badDirection;
-            List<Vessel>.Enumerator vs = BDATargetManager.LoadedVessels.GetEnumerator();
-            while (vs.MoveNext())
-            {
-                if (vs.Current == null) continue;
-                if (vs.Current == vessel || vs.Current.Landed ||
-                    !(Vector3.Dot(vs.Current.transform.position - vesselTransform.position,
-                            vesselTransform.up) > 0)) continue;
-                if (!PredictCollisionWithVessel(vs.Current, 2.5f, 0.5f, out badDirection)) continue;
-                // the 'isLeadingFormation' check was bad anyway, as releasing one member would unset it, while still having other followers, moving it here
-                if (vs.Current.FindPartModuleImplementing<IBDAIControl>()?.commandLeader?.vessel == vessel) continue;
-                vesselCollision = true;
-                terrainAlertDistance = (vs.Current.transform.position - vessel.transform.position).magnitude;
-                terrainAlertDirection = badDirection; // badDirection is the direction PredictCollisionWithVessel says we want to go.
-                terrainAlertNormal = badDirection;
-                break;
-            }
-            vs.Dispose();
-            if (vesselCollision)
-            {
-                gainAltReason = GainAltReason.VesselAhead;
-                return minAltitude; // Early exit on first detected vessel collision. Chances of multiple vessel collisions are low.
-            }
-
-            // Check for being too low.
-            if ((float)vessel.radarAltitude < minAltitude)
-            {
-                gainAltReason = GainAltReason.BelowMinAltitude;
-                return minAltitude;
-            }
-
-            // No conditions, so just return minAltitude.
-            gainAltReason = GainAltReason.None;
-            return minAltitude;
-        }
-
 
         Vector3 DefaultAltPosition()
         {

@@ -1414,6 +1414,12 @@ namespace BDArmory.UI
             GUI.Label(SLeftRect(line), $"{Localizer.Format("#LOC_BDArmory_Settings_MaxBulletHoles")}:  ({BDArmorySettings.MAX_NUM_BULLET_DECALS})", leftLabel);//Max Bullet Holes
             BDArmorySettings.MAX_NUM_BULLET_DECALS = (int)GUI.HorizontalSlider(SRightRect(line), BDArmorySettings.MAX_NUM_BULLET_DECALS, 1f, 999);
             line++;
+
+            GUI.Label(SLeftRect(line), $"{Localizer.Format("#LOC_BDArmory_Settings_TerrainAlertFrequency")}:  ({BDArmorySettings.TERRAIN_ALERT_FREQUENCY})", leftLabel); // Terrain alert frequency. Note: this is scaled by (int)(1+(radarAlt/500)^2) to avoid wasting too many cycles.
+            float terrainAlertFrequency = BDArmorySettings.TERRAIN_ALERT_FREQUENCY;
+            terrainAlertFrequency = GUI.HorizontalSlider(SRightRect(line), terrainAlertFrequency, 1f, 5f);
+            BDArmorySettings.TERRAIN_ALERT_FREQUENCY = (int)terrainAlertFrequency;
+            line++;
             line++;
 
             bool origPm = BDArmorySettings.PEACE_MODE;
@@ -1512,7 +1518,7 @@ namespace BDArmory.UI
                         windowSettingsEnabled = false;
                     }
                     line++;
-                    if(GUI.Button(SLeftRect(line),"Rapid Deploy"))
+                    if (GUI.Button(SLeftRect(line), "Rapid Deploy"))
                     {
                         BDACompetitionMode.Instance.StartRapidDeployment(0);
                         SaveConfig();
@@ -1603,17 +1609,17 @@ namespace BDArmory.UI
             InputSettingsList("WEAP_", ref inputID, ref line);
             line++;
 
-            GUI.Label(SLineRect(line), "- "+Localizer.Format("#LOC_BDArmory_InputSettings_TargetingPod") +" -", centerLabel);//Targeting Pod
+            GUI.Label(SLineRect(line), "- " + Localizer.Format("#LOC_BDArmory_InputSettings_TargetingPod") + " -", centerLabel);//Targeting Pod
             line++;
             InputSettingsList("TGP_", ref inputID, ref line);
             line++;
 
-            GUI.Label(SLineRect(line), "- "+Localizer.Format("#LOC_BDArmory_InputSettings_Radar") +" -", centerLabel);//Radar
+            GUI.Label(SLineRect(line), "- " + Localizer.Format("#LOC_BDArmory_InputSettings_Radar") + " -", centerLabel);//Radar
             line++;
             InputSettingsList("RADAR_", ref inputID, ref line);
             line++;
 
-            GUI.Label(SLineRect(line), "- "+Localizer.Format("#LOC_BDArmory_InputSettings_VesselSwitcher") +" -", centerLabel);//Vessel Switcher
+            GUI.Label(SLineRect(line), "- " + Localizer.Format("#LOC_BDArmory_InputSettings_VesselSwitcher") + " -", centerLabel);//Vessel Switcher
             line++;
             InputSettingsList("VS_", ref inputID, ref line);
             GUI.EndScrollView();
