@@ -957,6 +957,13 @@ namespace BDArmory.Control
                                 foundActiveParts++;
                                 break;
                             }
+                    using (var wms = vessel.FindPartModulesImplementing<KerbalSeat>().GetEnumerator())
+                        while (wms.MoveNext())
+                            if (wms.Current != null)
+                            {
+                                foundActiveParts++;
+                                break;
+                            }
                     activePilot = foundActiveParts == 3;
                 }
                 if (!activePilot)
@@ -1254,7 +1261,7 @@ namespace BDArmory.Control
                                     competitionStatus = vesselName + " is out of Ammunition";
                                 }
                             }
-                            var vesselAI = v.Current.FindPartModuleImplementing<BDModulePilotAI>();
+                            var vesselAI = v.FindPartModuleImplementing<BDModulePilotAI>();
                             if (vesselAI != null)
                                 vesselAI.outOfAmmo = true;
                         }
