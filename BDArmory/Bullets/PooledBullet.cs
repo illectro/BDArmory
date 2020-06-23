@@ -567,6 +567,53 @@ namespace BDArmory.Bullets
             }
         }
 
+        private class PriorityQueue
+        {
+            private Dictionary<int, List<PartResource>> partResources = new Dictionary<int, List<PartResource>>();
+
+            public PriorityQueue(HashSet<PartResource> elements)
+            {
+                foreach (PartResource r in elements)
+                {
+                    Add(r);
+                }
+            }
+
+            public void Add(PartResource r)
+            {
+                int key = r.part.resourcePriorityOffset;
+                if( partResources.ContainsKey(key) )
+                {
+                    List<PartResource> existing = partResources[key];
+                    existing.Add(r);
+                    partResources[key] = existing;
+                }
+                else
+                {
+                    List<PartResource> newList = new List<PartResource>();
+                    newList.Add(r);
+                    partResources.Add(key, newList);
+                }
+            }
+
+            public List<PartResource> Pop()
+            {
+                if( partResources.Count == 0 )
+                {
+                    return new List<PartResource>();
+                }
+                int key = partResources.Keys.Max();
+                List<PartResource> result = partResources[key];
+                partResources.Remove(key);
+                return result;
+            }
+
+            public bool HasNext()
+            {
+                return partResources.Count != 0;
+            }
+        }
+
         private void StealResource(Vessel src, Vessel dst, string resourceName, double ration)
         {
             // identify all parts on source vessel with resource
@@ -592,46 +639,52 @@ namespace BDArmory.Bullets
             double remainingAmount = srcParts.Sum(p => p.amount);
             double amount = remainingAmount * ration;
 
-            // transfer resource from src->dst parts, distributed evenly
-            List<PartResource> orderedSrcParts = new List<PartResource>(srcParts);
-            List<PartResource> orderedDstParts = new List<PartResource>(dstParts);
-            int srcIndex = 0;
-            double srcVal = 0;
-            for (int k=0;k<orderedSrcParts.Count;k++)
+            // transfer resource from src->dst parts, honoring their priorities
+            PriorityQueue sources = new PriorityQueue(srcParts);
+            PriorityQueue recipients = new PriorityQueue(dstParts);
+
+            List<ResourceAllocation> allocations = new List<ResourceAllocation>();
+            while( sources.HasNext() && recipients.HasNext() )
             {
-                if( orderedSrcParts[k].amount > srcVal )
+                List<PartResource> inputs = sources.Pop();
+                List<PartResource> outputs = recipients.Pop();
+                double availability = inputs.Sum(e => e.amount);
+                double opportunity = outputs.Sum(e => e.maxAmount - e.amount);
+                double perPartAmount = Math.Min(availability, amount) / (inputs.Count * outputs.Count);
+                foreach (PartResource n in inputs)
                 {
-                    srcVal = orderedSrcParts[k].amount;
-                    srcIndex = k;
+                    foreach (PartResource m in outputs)
+                    {
+                        ResourceAllocation ra = new ResourceAllocation(n, m.part, perPartAmount);
+                        allocations.Add(ra);
+                    }
                 }
             }
-            int dstIndex = 0;
-            double val = 0;
-            for (int k=0;k<orderedDstParts.Count;k++)
-            {
-                double diff = orderedDstParts[k].maxAmount - orderedDstParts[k].amount;
-                if( diff > val )
-                {
-                    val = diff;
-                    dstIndex = k;
-                }
-            }
-            PartResource pr = orderedSrcParts[srcIndex];
-            PartResource rcv = orderedDstParts[dstIndex];
-            amount = Math.Min(Math.Min(amount, pr.amount), rcv.maxAmount - rcv.amount);
-            if (amount == 0)
+            if( allocations.Count == 0 )
             {
                 return;
             }
-            Debug.Log(string.Format("[BDArmoryCompetition] Attempting steal {0} of {1} from {2} (curr={3},max={4}) to {5} (curr={6},max={7})", amount, resourceName, pr.part.name, pr.amount, pr.maxAmount, rcv.part.name, rcv.amount, rcv.maxAmount));
-            double confirmedAmount = pr.part.TransferResource(pr, amount, rcv.part);
-            if( confirmedAmount < 0 )
+            double confirmed = 0;
+            foreach (ResourceAllocation ra in allocations)
             {
-                Debug.Log(string.Format("[BDArmoryCompetition] Steal successful {0} from {2} to {1}", -confirmedAmount, src.vesselName, dst.vesselName));
+                confirmed += ra.sourceResource.part.TransferResource(ra.sourceResource, ra.amount, ra.destPart);
             }
-            else
+            if (confirmed > 0)
             {
-                Debug.Log("[BDArmoryCompetition] Steal failed");
+                Debug.Log(string.Format("[BDArmoryCompetition] Steal completed {0} from {2} to {1}", -confirmed, src.vesselName, dst.vesselName));
+            }
+        }
+
+        private class ResourceAllocation
+        {
+            public PartResource sourceResource;
+            public Part destPart;
+            public double amount;
+            public ResourceAllocation(PartResource r, Part p, double a)
+            {
+                this.sourceResource = r;
+                this.destPart = p;
+                this.amount = a;
             }
         }
 
