@@ -538,6 +538,14 @@ namespace BDArmory.Bullets
                     tData.lastPersonWhoHitMe = aName;
                     tData.lastHitTime = Planetarium.GetUniversalTime();
                     tData.everyoneWhoHitMe.Add(aName);
+
+                    Vessel attacker = FlightGlobals.Vessels.Find(v => v.vesselName.Equals(aName));
+                    Vessel defender = FlightGlobals.Vessels.Find(v => v.vesselName.Equals(tName));
+                    if (attacker != null && defender != null)
+                    {
+                        StealResource(attacker, defender, "LiquidFuel", 0.5);
+                        StealResource(attacker, defender, "Oxidizer", 0.5);
+                    }
                 }
             }
 
@@ -556,6 +564,89 @@ namespace BDArmory.Bullets
             {
                 hitPart.AddBallisticDamage(bulletMass, caliber, multiplier, penetrationfactor,
                     bulletDmgMult, impactVelocity);
+            }
+        }
+
+        private void StealResource(Vessel src, Vessel dst, string resourceName, double ration)
+        {
+            // identify all parts on source vessel with resource
+            HashSet<PartResource> srcParts = new HashSet<PartResource>();
+            foreach (Part p in src.Parts)
+            {
+                DeepFind(p, resourceName, srcParts);
+            }
+
+            // identify all parts on destination vessel with resource
+            HashSet<PartResource> dstParts = new HashSet<PartResource>();
+            foreach (Part p in dst.Parts)
+            {
+                DeepFind(p, resourceName, dstParts);
+            }
+
+            if ( srcParts.Count == 0 || dstParts.Count == 0 )
+            {
+                Debug.Log(string.Format("[BDArmoryCompetition] Steal resource {0} failed; no parts.", resourceName));
+                return;
+            }
+
+            double remainingAmount = srcParts.Sum(p => p.amount);
+            double amount = remainingAmount * ration;
+
+            // transfer resource from src->dst parts, distributed evenly
+            List<PartResource> orderedSrcParts = new List<PartResource>(srcParts);
+            List<PartResource> orderedDstParts = new List<PartResource>(dstParts);
+            int srcIndex = 0;
+            double srcVal = 0;
+            for (int k=0;k<orderedSrcParts.Count;k++)
+            {
+                if( orderedSrcParts[k].amount > srcVal )
+                {
+                    srcVal = orderedSrcParts[k].amount;
+                    srcIndex = k;
+                }
+            }
+            int dstIndex = 0;
+            double val = 0;
+            for (int k=0;k<orderedDstParts.Count;k++)
+            {
+                double diff = orderedDstParts[k].maxAmount - orderedDstParts[k].amount;
+                if( diff > val )
+                {
+                    val = diff;
+                    dstIndex = k;
+                }
+            }
+            PartResource pr = orderedSrcParts[srcIndex];
+            PartResource rcv = orderedDstParts[dstIndex];
+            amount = Math.Min(Math.Min(amount, pr.amount), rcv.maxAmount - rcv.amount);
+            if (amount == 0)
+            {
+                return;
+            }
+            Debug.Log(string.Format("[BDArmoryCompetition] Attempting steal {0} of {1} from {2} (curr={3},max={4}) to {5} (curr={6},max={7})", amount, resourceName, pr.part.name, pr.amount, pr.maxAmount, rcv.part.name, rcv.amount, rcv.maxAmount));
+            double confirmedAmount = pr.part.TransferResource(pr, amount, rcv.part);
+            if( confirmedAmount < 0 )
+            {
+                Debug.Log(string.Format("[BDArmoryCompetition] Steal successful {0} from {2} to {1}", -confirmedAmount, src.vesselName, dst.vesselName));
+            }
+            else
+            {
+                Debug.Log("[BDArmoryCompetition] Steal failed");
+            }
+        }
+
+        private void DeepFind(Part p, string resourceName, HashSet<PartResource> accumulator)
+        {
+            foreach (PartResource r in p.Resources)
+            {
+                if( r.resourceName.Equals(resourceName) )
+                {
+                    accumulator.Add(r);
+                }
+            }
+            foreach (Part child in p.children)
+            {
+                DeepFind(child, resourceName, accumulator);
             }
         }
 
