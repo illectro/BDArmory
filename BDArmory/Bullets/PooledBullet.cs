@@ -538,6 +538,22 @@ namespace BDArmory.Bullets
                     tData.lastPersonWhoHitMe = aName;
                     tData.lastHitTime = Planetarium.GetUniversalTime();
                     tData.everyoneWhoHitMe.Add(aName);
+
+                    if (BDArmorySettings.RESOURCE_STEAL_ENABLED)
+                    {
+                        float fuelRation = BDArmorySettings.RESOURCE_STEAL_FUEL_RATION;
+                        float ammoRation = BDArmorySettings.RESOURCE_STEAL_AMMO_RATION;
+                        Vessel attacker = FlightGlobals.Vessels.Find(v => v.vesselName.Equals(aName));
+                        Vessel defender = FlightGlobals.Vessels.Find(v => v.vesselName.Equals(tName));
+                        if (attacker != null && defender != null)
+                        {
+                            StealResource(attacker, defender, "LiquidFuel", fuelRation);
+                            StealResource(attacker, defender, "Oxidizer", fuelRation);
+                            StealResource(attacker, defender, "20x102Ammo", ammoRation);
+                            StealResource(attacker, defender, "30x173Ammo", ammoRation);
+                            StealResource(attacker, defender, "50CalAmmo", ammoRation);
+                        }
+                    }
                 }
             }
 
@@ -556,6 +572,164 @@ namespace BDArmory.Bullets
             {
                 hitPart.AddBallisticDamage(bulletMass, caliber, multiplier, penetrationfactor,
                     bulletDmgMult, impactVelocity);
+            }
+        }
+
+        private class PriorityQueue
+        {
+            private Dictionary<int, List<PartResource>> partResources = new Dictionary<int, List<PartResource>>();
+
+            public PriorityQueue(HashSet<PartResource> elements)
+            {
+                foreach (PartResource r in elements)
+                {
+                    Add(r);
+                }
+            }
+
+            public void Add(PartResource r)
+            {
+                int key = r.part.resourcePriorityOffset;
+                if( partResources.ContainsKey(key) )
+                {
+                    List<PartResource> existing = partResources[key];
+                    existing.Add(r);
+                    partResources[key] = existing;
+                }
+                else
+                {
+                    List<PartResource> newList = new List<PartResource>();
+                    newList.Add(r);
+                    partResources.Add(key, newList);
+                }
+            }
+
+            public List<PartResource> Pop()
+            {
+                if( partResources.Count == 0 )
+                {
+                    return new List<PartResource>();
+                }
+                int key = partResources.Keys.Max();
+                List<PartResource> result = partResources[key];
+                partResources.Remove(key);
+                return result;
+            }
+
+            public bool HasNext()
+            {
+                return partResources.Count != 0;
+            }
+        }
+
+        private void StealResource(Vessel src, Vessel dst, string resourceName, double ration)
+        {
+            // identify all parts on source vessel with resource
+            HashSet<PartResource> srcParts = new HashSet<PartResource>();
+            foreach (Part p in src.Parts)
+            {
+                DeepFind(p, resourceName, srcParts);
+            }
+
+            // identify all parts on destination vessel with resource
+            HashSet<PartResource> dstParts = new HashSet<PartResource>();
+            foreach (Part p in dst.Parts)
+            {
+                DeepFind(p, resourceName, dstParts);
+            }
+
+            if ( srcParts.Count == 0 || dstParts.Count == 0 )
+            {
+                //Debug.Log(string.Format("[BDArmoryCompetition] Steal resource {0} failed; no parts.", resourceName));
+                return;
+            }
+
+            double remainingAmount = srcParts.Sum(p => p.amount);
+            double amount = remainingAmount * ration;
+
+            // transfer resource from src->dst parts, honoring their priorities
+            PriorityQueue sources = new PriorityQueue(srcParts);
+            PriorityQueue recipients = new PriorityQueue(dstParts);
+
+            List<ResourceAllocation> allocations = new List<ResourceAllocation>();
+            List<PartResource> inputs = null, outputs = null;
+            while ( amount > 0 )
+            {
+                if (inputs == null)
+                {
+                    inputs = sources.Pop();
+                }
+                if (outputs == null)
+                {
+                    outputs = recipients.Pop();
+                }
+                double availability = inputs.Sum(e => e.amount);
+                double opportunity = outputs.Sum(e => e.maxAmount - e.amount);
+                double tAmount = Math.Min(availability, Math.Min(opportunity, amount));
+                double perPartAmount = tAmount / (inputs.Count * outputs.Count);
+                foreach (PartResource n in inputs)
+                {
+                    foreach (PartResource m in outputs)
+                    {
+                        //Debug.Log(string.Format("[BDArmoryCompetition] Allocate {0} of {1} from {2} to {3}", perPartAmount, resourceName, n.part.name, m.part.name));
+                        ResourceAllocation ra = new ResourceAllocation(n, m.part, perPartAmount);
+                        allocations.Add(ra);
+                    }
+                }
+                if( availability < amount )
+                {
+                    inputs = null;
+                }
+                if( opportunity < amount )
+                {
+                    outputs = null;
+                }
+                if( tAmount == 0 )
+                {
+                    break;
+                }
+                amount -= tAmount;
+            }
+            if( allocations.Count == 0 )
+            {
+                return;
+            }
+            double confirmed = 0;
+            foreach (ResourceAllocation ra in allocations)
+            {
+                confirmed += ra.sourceResource.part.TransferResource(ra.sourceResource, ra.amount, ra.destPart);
+            }
+            if (confirmed < 0)
+            {
+                Debug.Log(string.Format("[BDArmoryCompetition] Steal completed {0} of {3} from {2} to {1}", -confirmed, src.vesselName, dst.vesselName, resourceName));
+            }
+        }
+
+        private class ResourceAllocation
+        {
+            public PartResource sourceResource;
+            public Part destPart;
+            public double amount;
+            public ResourceAllocation(PartResource r, Part p, double a)
+            {
+                this.sourceResource = r;
+                this.destPart = p;
+                this.amount = a;
+            }
+        }
+
+        private void DeepFind(Part p, string resourceName, HashSet<PartResource> accumulator)
+        {
+            foreach (PartResource r in p.Resources)
+            {
+                if( r.resourceName.Equals(resourceName) )
+                {
+                    accumulator.Add(r);
+                }
+            }
+            foreach (Part child in p.children)
+            {
+                DeepFind(child, resourceName, accumulator);
             }
         }
 
