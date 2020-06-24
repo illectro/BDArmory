@@ -545,6 +545,9 @@ namespace BDArmory.Bullets
                     {
                         StealResource(attacker, defender, "LiquidFuel", 0.5);
                         StealResource(attacker, defender, "Oxidizer", 0.5);
+                        StealResource(attacker, defender, "20x102Ammo", 0.1);
+                        StealResource(attacker, defender, "30x173Ammo", 0.1);
+                        StealResource(attacker, defender, "50CalAmmo", 0.1);
                     }
                 }
             }
@@ -632,7 +635,7 @@ namespace BDArmory.Bullets
 
             if ( srcParts.Count == 0 || dstParts.Count == 0 )
             {
-                Debug.Log(string.Format("[BDArmoryCompetition] Steal resource {0} failed; no parts.", resourceName));
+                //Debug.Log(string.Format("[BDArmoryCompetition] Steal resource {0} failed; no parts.", resourceName));
                 return;
             }
 
@@ -644,21 +647,43 @@ namespace BDArmory.Bullets
             PriorityQueue recipients = new PriorityQueue(dstParts);
 
             List<ResourceAllocation> allocations = new List<ResourceAllocation>();
-            while( sources.HasNext() && recipients.HasNext() )
+            List<PartResource> inputs = null, outputs = null;
+            while ( amount > 0 )
             {
-                List<PartResource> inputs = sources.Pop();
-                List<PartResource> outputs = recipients.Pop();
+                if (inputs == null)
+                {
+                    inputs = sources.Pop();
+                }
+                if (outputs == null)
+                {
+                    outputs = recipients.Pop();
+                }
                 double availability = inputs.Sum(e => e.amount);
                 double opportunity = outputs.Sum(e => e.maxAmount - e.amount);
-                double perPartAmount = Math.Min(availability, amount) / (inputs.Count * outputs.Count);
+                double tAmount = Math.Min(availability, Math.Min(opportunity, amount));
+                double perPartAmount = tAmount / (inputs.Count * outputs.Count);
                 foreach (PartResource n in inputs)
                 {
                     foreach (PartResource m in outputs)
                     {
+                        //Debug.Log(string.Format("[BDArmoryCompetition] Allocate {0} of {1} from {2} to {3}", perPartAmount, resourceName, n.part.name, m.part.name));
                         ResourceAllocation ra = new ResourceAllocation(n, m.part, perPartAmount);
                         allocations.Add(ra);
                     }
                 }
+                if( availability < amount )
+                {
+                    inputs = null;
+                }
+                if( opportunity < amount )
+                {
+                    outputs = null;
+                }
+                if( tAmount == 0 )
+                {
+                    break;
+                }
+                amount -= tAmount;
             }
             if( allocations.Count == 0 )
             {
@@ -669,9 +694,9 @@ namespace BDArmory.Bullets
             {
                 confirmed += ra.sourceResource.part.TransferResource(ra.sourceResource, ra.amount, ra.destPart);
             }
-            if (confirmed > 0)
+            if (confirmed < 0)
             {
-                Debug.Log(string.Format("[BDArmoryCompetition] Steal completed {0} from {2} to {1}", -confirmed, src.vesselName, dst.vesselName));
+                Debug.Log(string.Format("[BDArmoryCompetition] Steal completed {0} of {3} from {2} to {1}", -confirmed, src.vesselName, dst.vesselName, resourceName));
             }
         }
 
