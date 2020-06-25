@@ -1067,7 +1067,7 @@ namespace BDArmory.Control
                         if (!pilot.weaponManager.guardMode) averageSpeed *= 0.5;
                     }
 
-                    bool vesselNotFired = false// commented out until toggle is added //(Planetarium.GetUniversalTime() -  vData.lastFiredTime) > 120; // if you can't shoot in 2 minutes you're at the front of line
+                    bool vesselNotFired = false; //(Planetarium.GetUniversalTime() -  vData.lastFiredTime) > 120; // if you can't shoot in 2 minutes you're at the front of line
 
                     Debug.Log("[BDArmory] Victim Check " + vesselName + " " + averageSpeed.ToString() + " " + vesselNotFired.ToString());
                     if (hasFired)
@@ -1310,9 +1310,9 @@ namespace BDArmory.Control
                                     competitionStatus = vesselName + " is out of Ammunition";
                                 }
                             }
-                            // var vesselAI = v.FindPartModuleImplementing<BDModulePilotAI>();
-                            // if (vesselAI != null)
-                            //     vesselAI.outOfAmmo = true;
+                            var vesselAI = v.FindPartModuleImplementing<BDModulePilotAI>();
+                            if (vesselAI != null)
+                                vesselAI.outOfAmmo = true;
                         }
                     }
 
