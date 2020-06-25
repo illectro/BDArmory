@@ -59,7 +59,7 @@ namespace BDArmory.UI
 				landed = true;
 				if (vesselData.altitude == null || vesselData.altitude < 0)
 				{
-					vesselData.altitude = 35;//LocationUtil.TerrainHeight(vesselData.latitude, vesselData.longitude, vesselData.body);
+					vesselData.altitude = 35;
 				}
 			
 				Vector3d pos = vesselData.body.GetRelSurfacePosition(vesselData.latitude, vesselData.longitude, vesselData.altitude.Value);
@@ -73,31 +73,16 @@ namespace BDArmory.UI
 			}
 
 			ConfigNode[] partNodes;
-			//UntrackedObjectClass sizeClass;
 			ShipConstruct shipConstruct = null;
-			bool hasClamp = false;
-			float lcHeight = 0;
-			ConfigNode craftNode;
-			Quaternion craftRotation = Quaternion.identity;
 			if (!string.IsNullOrEmpty(vesselData.craftURL))
 			{
-				// Save the current ShipConstruction ship, otherwise the player will see the spawned ship next time they enter the VAB!
-				ConfigNode currentShip = ShipConstruction.ShipConfig;
-
-				shipConstruct = ShipConstruction.LoadShip(vesselData.craftURL);
-				if (shipConstruct == null)
+				var craftNode = ConfigNode.Load(vesselData.craftURL);
+				shipConstruct = new ShipConstruct();
+				if (!shipConstruct.LoadShip(craftNode))
 				{
-					Debug.Log("ShipConstruct was null when tried to load '" + vesselData.craftURL +
-					          "' (usually this means the file could not be found).");
+					Debug.LogError("Ship file error!");
 					return null;
 				}
-
-				craftNode = ConfigNode.Load(vesselData.craftURL);
-				lcHeight = ConfigNode.ParseVector3(craftNode.GetNode("PART").GetValue("pos")).y;
-				craftRotation = ConfigNode.ParseQuaternion(craftNode.GetNode("PART").GetValue("rot"));
-
-				// Restore ShipConstruction ship
-				ShipConstruction.ShipConfig = currentShip;
 
 				// Set the name
 				if (string.IsNullOrEmpty(vesselData.name))
@@ -215,11 +200,6 @@ namespace BDArmory.UI
 			{
 				Vector3d norm = vesselData.body.GetRelSurfaceNVector(vesselData.latitude, vesselData.longitude);
 
-				double terrainHeight = 0.0;
-				if (vesselData.body.pqsController != null)
-				{
-					terrainHeight = vesselData.body.pqsController.GetSurfaceHeight(norm) - vesselData.body.pqsController.radius;
-				}
 				bool splashed = false;// = landed && terrainHeight < 0.001;
 
 				// Create the config node representation of the ProtoVessel
@@ -294,26 +274,7 @@ namespace BDArmory.UI
 				if (landed || splashed)
 				{
 					float hgt = (shipConstruct != null ? shipConstruct.parts[0] : vesselData.craftPart.partPrefab).localRoot.attPos0.y - lowest;
-					hgt += vesselData.height;
-
-					foreach (Part p in shipConstruct.Parts)
-					{
-						LaunchClamp lc = p.FindModuleImplementing<LaunchClamp>();
-						if (lc)
-						{
-							hasClamp = true;
-							break;
-						}
-					}
-
-					if (!hasClamp)
-					{
-						hgt += 35;
-					}
-					else
-					{
-						hgt += lcHeight;
-					}
+					hgt += vesselData.height + 35;
 					protoVesselNode.SetValue("hgt", hgt.ToString(), true);
 				}
 				protoVesselNode.SetValue("rot", KSPUtil.WriteQuaternion(normal * rotation), true);
@@ -321,7 +282,6 @@ namespace BDArmory.UI
 				// Set the normal vector relative to the surface
 				Vector3 nrm = (rotation * Vector3.forward);
 				protoVesselNode.SetValue("nrm", nrm.x + "," + nrm.y + "," + nrm.z, true);
-
 				protoVesselNode.SetValue("prst", false.ToString(), true);
 			}
 
