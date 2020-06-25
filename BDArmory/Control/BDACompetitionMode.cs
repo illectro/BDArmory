@@ -599,6 +599,7 @@ namespace BDArmory.Control
                     
                     try
                     {
+                        // TODO: KillTimer sholud be converted to thread safe array
                         KillTimer.Remove(name);
                         Scores[name].spawnTime = Planetarium.GetUniversalTime();
                         vessel = SpawnCraft(craftUrl, .5d, FlightGlobals.camera_position);
@@ -609,6 +610,7 @@ namespace BDArmory.Control
                         throw;
                     }
 
+                    // TODO: loaded vessels sholud be converted to thread safe array
                     while (!vessel.loaded || BDATargetManager.LoadedVessels.All(vv => vessel.id != vv.id))
                     {
                         yield return new WaitForSeconds(.1f);
