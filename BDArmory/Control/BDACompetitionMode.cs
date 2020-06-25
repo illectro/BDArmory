@@ -631,6 +631,7 @@ namespace BDArmory.Control
                             }
                         }
 
+                        Scores[name].lastHitTime = 0;
                         Scores[name].lastPersonWhoHitMe = "";
                         Scores[name].whoGotCleanKill = "";
                         Scores[name].everyoneWhoHitMe.Clear();
@@ -1433,7 +1434,7 @@ namespace BDArmory.Control
                             pilotActions[key] = " is Dead";
                             var whoKilledMe = "";
 
-                            if (Planetarium.GetUniversalTime() - Scores[key].lastHitTime < 10)
+                            if (Planetarium.GetUniversalTime() - Scores[key].lastHitTime < 6)
                             {
                                 // if last hit was recent that person gets the kill
                                 whoKilledMe = Scores[key].lastPersonWhoHitMe;
