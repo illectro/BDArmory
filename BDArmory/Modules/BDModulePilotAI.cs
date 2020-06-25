@@ -71,10 +71,13 @@ namespace BDArmory.Modules
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend Multiplier"),//Extend Distance Multiplier
         UI_FloatRange(minValue = 0f, maxValue = 2f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float extendMult = 1f;
-
+        
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Evasion Multiplier"),//Extend Distance Multiplier
+         UI_FloatRange(minValue = 0f, maxValue = 2f, stepIncrement = .1f, scene = UI_Scene.All)]
+        public float evasionMult = 1f;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_SteerFactor"),//Steer Factor
-            UI_FloatRange(minValue = 0.1f, maxValue = 20f, stepIncrement = .1f, scene = UI_Scene.All)]
+         UI_FloatRange(minValue = 0.1f, maxValue = 20f, stepIncrement = .1f, scene = UI_Scene.All)]
         public float steerMult = 6;
         //make a combat steer mult and idle steer mult
 
@@ -116,6 +119,18 @@ namespace BDArmory.Modules
         float maxAllowedCosAoA;
         float lastAllowedAoA;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Dynamic Steer Dampening Factor"),//Max G
+            UI_FloatRange(minValue = 1f, maxValue = 10f, stepIncrement = 0.5f, scene = UI_Scene.All)]
+        public float dynamicSteerDampeningFactor = 10;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Dynamic Dampening Min"),//Dynamic steer dampening Clamp min
+         UI_FloatRange(minValue = 1f, maxValue = 8f, stepIncrement = 0.5f, scene = UI_Scene.All)]
+        public float DynamicDampeningMin = 1f;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Dynamic Dampening Max"),//Dynamic steer dampening Clamp max
+            UI_FloatRange(minValue = 1f, maxValue = 8f, stepIncrement = 0.5f, scene = UI_Scene.All)]
+        public float DynamicDampeningMax = 8f;
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_Orbit", advancedTweakable = true),//Orbit 
             UI_Toggle(enabledText = "#LOC_BDArmory_Orbit_enabledText", disabledText = "#LOC_BDArmory_Orbit_disabledText", scene = UI_Scene.All),]//Starboard (CW)--Port (CCW)
         public bool ClockwiseOrbit = true;
@@ -123,9 +138,17 @@ namespace BDArmory.Modules
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Extend Toggle", advancedTweakable = true),//Extend Toggle
         UI_Toggle(enabledText = "Extend Enabled", disabledText = "Extend Disabled", scene = UI_Scene.All),]
         public bool canExtend = true;
+        
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Evasion Toggle", advancedTweakable = true), //Toggle Dynamic Steer Dampening
+         UI_Toggle(enabledText = "Enabled", disabledText = "Disabled", scene = UI_Scene.All),]
+        public bool EvasionToggle = false;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Dynamic Steer Dampening", advancedTweakable = true), //Toggle Dynamic Steer Dampening
+         UI_Toggle(enabledText = "Enabled", disabledText = "Disabled", scene = UI_Scene.All),]
+        public bool dynamicSteerDampening;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_UnclampTuning", advancedTweakable = true),//Unclamp tuning 
-            UI_Toggle(enabledText = "#LOC_BDArmory_UnclampTuning_enabledText", disabledText = "#LOC_BDArmory_UnclampTuning_disabledText", scene = UI_Scene.All),]//Unclamped--Clamped
+         UI_Toggle(enabledText = "#LOC_BDArmory_UnclampTuning_enabledText", disabledText = "#LOC_BDArmory_UnclampTuning_disabledText", scene = UI_Scene.All),]//Unclamped--Clamped
         public bool UpToEleven = false;
         bool toEleven = false;
 
@@ -134,6 +157,7 @@ namespace BDArmory.Modules
             { nameof(defaultAltitude), 100000f },
             { nameof(minAltitude), 60000f },
             { nameof(extendMult), 200f },
+            { nameof(evasionMult), 200f },
             { nameof(steerMult), 200f },
             { nameof(steerKiAdjust), 20f },
             { nameof(steerDamping), 100f },
@@ -143,6 +167,9 @@ namespace BDArmory.Modules
             { nameof(idleSpeed), 3000f },
             { nameof(maxAllowedGForce), 1000f },
             { nameof(maxAllowedAoA), 180f },
+            { nameof(dynamicSteerDampeningFactor), 100f },
+            { nameof(DynamicDampeningMin), 100f },
+            { nameof(DynamicDampeningMax), 100f }
         };
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_StandbyMode"),//Standby Mode
@@ -227,15 +254,24 @@ namespace BDArmory.Modules
         bool initialTakeOff = true; // False after the initial take-off.
         float terrainAlertDetectionRadius = 30.0f; // Sphere radius that the vessel occupies. Should cover most vessels. FIXME This could be based on the vessel's maximum width/height.
         float terrainAlertThreatRange; // The distance to the terrain to consider (based on turn radius).
-        float terrainAlertDistance; // Distance to the terrain.
+        float terrainAlertDistance; // Distance to the terrain (in the direction of the terrain normal).
         Vector3 terrainAlertNormal; // Approximate surface normal at the terrain intercept.
         Vector3 terrainAlertDirection; // Terrain slope in the direction of the velocity at the terrain intercept.
         Vector3 terrainAlertCorrectionDirection; // The direction to go to avoid the terrain.
         float terrainAlertCoolDown = 0; // Cool down period before allowing other special modes to take effect (currently just "orbitting").
         Vector3 relativeVelocityRightDirection; // Right relative to current velocity and upDirection.
         Vector3 relativeVelocityDownDirection; // Down relative to current velocity and upDirection.
-        float turnRadiusTwiddleFactorMin = 2.0f; // Minimum twiddle factor for the turn radius. Depends on roll rate and how the vessel behaves under fire. FIXME This could be a slider for the user to set.
-        float turnRadiusTwiddleFactorMax = 4.0f; // Maximum twiddle factor for the turn radius. Depends on roll rate and how the vessel behaves under fire. FIXME This could be a slider for the user to set.
+        Vector3 terrainAlertDebugPos, terrainAlertDebugDir, terrainAlertDebugPos2, terrainAlertDebugDir2; // Debug vector3's for drawing lines.
+        bool terrainAlertDebugDraw2 = false;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, category = "DoubleSlider", guiName = "#LOC_BDArmory_turnRadiusTwiddleFactors"),//Turn radius twiddle factors
+            UI_FloatRange(minValue = 1f, maxValue = 5f, stepIncrement = 0.5f, scene = UI_Scene.All)]
+        float turnRadiusTwiddleFactorMin = 2.0f, turnRadiusTwiddleFactorMax = 4.0f; // Minimum and maximum twiddle factors for the turn radius. Depends on roll rate and how the vessel behaves under fire.
+
+        // Ramming
+        bool ramming = false; // Whether or not we're currently trying to ram someone.
+        public bool allowRamming = true; // Allow switching to ramming mode.
+        public bool outOfAmmo = false; // Indicator for being out of ammo. Set in competition mode only.
 
         //wing command
         bool useRollHint;
@@ -245,8 +281,6 @@ namespace BDArmory.Modules
         Vector3d commandHeading;
 
         float finalMaxSteer = 1;
-
-        public bool outOfAmmo = false; // Indicator for being out of ammo. Set in competition mode only.
 
         #region RMB info in editor
 
@@ -279,6 +313,30 @@ namespace BDArmory.Modules
 
         #endregion RMB info in editor
 
+        protected void SetSliderClamps(string fieldNameMin, string fieldNameMax)
+        {
+            // Enforce min <= max for pairs of sliders
+            UI_FloatRange field = (UI_FloatRange)Fields[fieldNameMin].uiControlEditor;
+            field.onFieldChanged = OnMinUpdated;
+            field = (UI_FloatRange)Fields[fieldNameMin].uiControlFlight;
+            field.onFieldChanged = OnMinUpdated;
+            field = (UI_FloatRange)Fields[fieldNameMax].uiControlEditor;
+            field.onFieldChanged = OnMaxUpdated;
+            field = (UI_FloatRange)Fields[fieldNameMax].uiControlFlight;
+            field.onFieldChanged = OnMaxUpdated;
+        }
+        public void OnMinUpdated(BaseField field, object obj)
+        {
+            if (turnRadiusTwiddleFactorMax < turnRadiusTwiddleFactorMin) { turnRadiusTwiddleFactorMax = turnRadiusTwiddleFactorMin; } // Enforce min < max for turn radius twiddle factor.
+            if (DynamicDampeningMax < DynamicDampeningMin) { DynamicDampeningMax = DynamicDampeningMin; } // Enforce min < max for dynamic steer dampening.
+        }
+
+        public void OnMaxUpdated(BaseField field, object obj)
+        {
+            if (turnRadiusTwiddleFactorMin > turnRadiusTwiddleFactorMax) { turnRadiusTwiddleFactorMin = turnRadiusTwiddleFactorMax; } // Enforce min < max for turn radius twiddle factor.
+            if (DynamicDampeningMin > DynamicDampeningMax) { DynamicDampeningMin = DynamicDampeningMax; } // Enforce min < max for dynamic steer dampening.
+        }
+
         protected override void Start()
         {
             base.Start();
@@ -288,6 +346,8 @@ namespace BDArmory.Modules
                 maxAllowedCosAoA = (float)Math.Cos(maxAllowedAoA * Math.PI / 180.0);
                 lastAllowedAoA = maxAllowedAoA;
             }
+            SetSliderClamps("turnRadiusTwiddleFactorMin", "turnRadiusTwiddleFactorMax");
+            SetSliderClamps("DynamicDampeningMin", "DynamicDampeningMax");
         }
 
         public override void ActivatePilot()
@@ -419,7 +479,7 @@ namespace BDArmory.Modules
 
             UpdateVelocityRelativeDirections();
             CheckLandingGear();
-            if (!vessel.LandedOrSplashed && (FlyAvoidTerrain(s) || FlyAvoidOthers(s)))
+            if (!vessel.LandedOrSplashed && (FlyAvoidTerrain(s) || (!ramming && FlyAvoidOthers(s))))
             { turningTimer = 0; }
             else if (belowMinAltitude && !(gainAltInhibited && Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, vessel.upAxis) > 0)) // If we're below minimum altitude, gain altitude unless we're being inhibited and gaining altitude.
             {
@@ -458,9 +518,9 @@ namespace BDArmory.Modules
                 lastTargetPosition = requestedExtendTpos;
             }
 
-            if (evasiveTimer > 0 || (weaponManager && (weaponManager.missileIsIncoming || weaponManager.isChaffing || weaponManager.isFlaring || weaponManager.underFire)))
+            if ((evasiveTimer > 0 || (weaponManager && !ramming && (weaponManager.missileIsIncoming || weaponManager.isChaffing || weaponManager.isFlaring || weaponManager.underFire))) && EvasionToggle) // Don't evade while ramming.
             {
-                if (evasiveTimer < 1)
+                if (evasiveTimer < 1 * evasionMult)
                 {
                     threatRelativePosition = vessel.Velocity().normalized + vesselTransform.right;
 
@@ -501,7 +561,7 @@ namespace BDArmory.Modules
                 evasiveTimer += Time.fixedDeltaTime;
                 turningTimer = 0;
 
-                if (evasiveTimer > 3)
+                if (evasiveTimer > 3 * evasionMult)
                 {
                     evasiveTimer = 0;
                     collisionDetectionTicker = vesselCollisionAvoidanceTickerFreq + 1; //check for collision again after exiting evasion routine
@@ -556,20 +616,34 @@ namespace BDArmory.Modules
                     float extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     float srfDist = (GetSurfacePosition(targetVessel.transform.position) - GetSurfacePosition(vessel.transform.position)).sqrMagnitude;
 
-                    if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45)
+                    if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45 && !ramming)
                     {
                         extending = true;
                         lastTargetPosition = targetVessel.transform.position;
                         weaponManager.ForceScan();
                     }
+
+                    if (ramming)
+                    {
+                      if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45 && !ramming)
+                      {
+                          extending = true;
+                          lastTargetPosition = targetVessel.transform.position;
+                          weaponManager.ForceScan();
+                      }  
+                    }
                 }
 
                 if (!extending)
                 {
-                    currentStatus = "Engaging";
-                    debugString.Append($"Flying to target");
-                    debugString.Append(Environment.NewLine);
-                    FlyToTargetVessel(s, targetVessel);
+                    if (!outOfAmmo || !RamTarget(s, targetVessel)) // If we're out of ammo, see if we can ram someone, otherwise, behave as normal.
+                    {
+                        ramming = false;
+                        currentStatus = "Engaging";
+                        debugString.Append($"Flying to target");
+                        debugString.Append(Environment.NewLine);
+                        FlyToTargetVessel(s, targetVessel);
+                    }
                 }
             }
             else
@@ -617,6 +691,85 @@ namespace BDArmory.Modules
 
             badDirection = Vector3.zero;
             return false;
+        }
+
+        float ClosestTimeToCPA(Vessel v, float maxTime)
+        { // Find the closest future time to closest point of approach considering accelerations in addition to velocities. This uses the generalisation of Cardano's solution to finding roots of cubics to find where the derivative of the separation is a minimum.
+            if (v == null) return 0f; // We don't have a target.
+            Vector3 relPosition = v.transform.position - vessel.transform.position;
+            Vector3 relVelocity = v.Velocity() - vessel.Velocity();
+            Vector3 relAcceleration = v.acceleration - vessel.acceleration;
+            float A = Vector3.Dot(relAcceleration, relAcceleration) / 2f;
+            float B = Vector3.Dot(relVelocity, relAcceleration) * 3f / 2f;
+            float C = Vector3.Dot(relVelocity, relVelocity) + Vector3.Dot(relPosition, relAcceleration);
+            float D = Vector3.Dot(relPosition, relVelocity);
+            if (A == 0) // Not actually a cubic. Relative acceleration is zero, so return the much simpler linear timeToCPA.
+            {
+                return Mathf.Clamp(-Vector3.Dot(relPosition, relVelocity) / relVelocity.sqrMagnitude, 0f, maxTime);
+            }
+            float D0 = Mathf.Pow(B, 2f) - 3f * A * C;
+            float D1 = 2 * Mathf.Pow(B, 3f) - 9f * A * B * C + 27f * Mathf.Pow(A, 2f) * D;
+            float E = Mathf.Pow(D1, 2f) - 4f * Mathf.Pow(D0, 3f); // = -27*A^2*discriminant
+            // float discriminant = 18f * A * B * C * D - 4f * Mathf.Pow(B, 3f) * D + Mathf.Pow(B, 2f) * Mathf.Pow(C, 2f) - 4f * A * Mathf.Pow(C, 3f) - 27f * Mathf.Pow(A, 2f) * Mathf.Pow(D, 2f);
+            if (E > 0)
+            { // Single solution (E is positive)
+                float F = (D1 + Mathf.Sign(D1) * Mathf.Sqrt(E)) / 2f;
+                float G = Mathf.Sign(F) * Mathf.Pow(Mathf.Abs(F), 1f / 3f);
+                float time = -1f / 3f / A * (B + G + D0 / G);
+                return Mathf.Clamp(time, 0f, maxTime);
+            }
+            else if (E < 0)
+            { // Triple solution (E is negative)
+                float F_real = D1 / 2f;
+                float F_imag = Mathf.Sign(D1) * Mathf.Sqrt(-E) / 2f;
+                float F_abs = Mathf.Sqrt(Mathf.Pow(F_real, 2f) + Mathf.Pow(F_imag, 2f));
+                float F_ang = Mathf.Atan2(F_imag, F_real);
+                float G_abs = Mathf.Pow(F_abs, 1f / 3f);
+                float G_ang = F_ang / 3f;
+                float time = -1f;
+                for (int i = 0; i < 3; ++i)
+                {
+                    float G = G_abs * Mathf.Cos(G_ang + 2f * (float)i * Mathf.PI / 3f);
+                    float t = -1f / 3f / A * (B + G + D0 * G / Mathf.Pow(G_abs, 2f));
+                    if (t > 0f && Mathf.Sign(Vector3.Dot(relVelocity, relVelocity) + Vector3.Dot(relPosition, relAcceleration) + 3f * t * Vector3.Dot(relVelocity, relAcceleration) + 3f / 2f * Mathf.Pow(t, 2f) * Vector3.Dot(relAcceleration, relAcceleration)) > 0)
+                    { // It's a minimum and in the future.
+                        if (time < 0f || t < time) // Update the closest time.
+                            time = t;
+                    }
+                }
+                return Mathf.Clamp(time, 0f, maxTime);
+            }
+            else
+            { // Repeated root
+                if (Mathf.Abs(Mathf.Pow(B, 2) - 2f * A * C) < 1e-7)
+                { // A triple-root.
+                    return Mathf.Clamp(-B / 3f / A, 0f, maxTime);
+                }
+                else
+                { // Double root and simple root.
+                    return Mathf.Clamp(Mathf.Max((9f * A * D - B * C) / 2 / (Mathf.Pow(B, 2f) - 3f * A * C), (4f * A * B * C - 9f * Mathf.Pow(A, 2f) * D - Mathf.Pow(B, 3f)) / A / (Mathf.Pow(B, 2f) - 3f * A * C)), 0f, maxTime);
+                }
+            }
+        }
+
+        bool RamTarget(FlightCtrlState s, Vessel v)
+        {
+            if (v == null) return false; // We don't have a target.
+            if (Vector3.Dot(vessel.srf_vel_direction, v.srf_vel_direction) * (float)v.srfSpeed / (float)vessel.srfSpeed > 0.95f) return false; // We're not approaching them fast enough.
+            Vector3 relVelocity = v.Velocity() - vessel.Velocity();
+            Vector3 relPosition = v.transform.position - vessel.transform.position;
+            float timeToCPA = ClosestTimeToCPA(v, 10f);
+
+            // Let's try to ram someone!
+            if (!ramming)
+                ramming = true;
+            currentStatus = "Ramming speed!";
+            float controlLag = 0.2f; // Lag time in response of control surfaces. FIXME This should be tunable.
+            Vector3 predictedPosition = AIUtils.PredictPosition(v, timeToCPA) - Mathf.Pow(controlLag, 2f) * (timeToCPA / controlLag - 1 + Mathf.Exp(-timeToCPA / controlLag)) * vessel.acceleration; // Predicted position, compensated for control surface lag.
+            FlyToPosition(s, predictedPosition);
+            AdjustThrottle(maxSpeed, false, true); // Ramming speed!
+
+            return true;
         }
 
         void FlyToTargetVessel(FlightCtrlState s, Vessel v)
@@ -944,12 +1097,16 @@ namespace BDArmory.Modules
                 rollTarget = Vector3.ProjectOnPlane(rollTarget, vesselTransform.up);
             }
 
+            //ramming
+            if (ramming)
+                rollTarget = Vector3.ProjectOnPlane(targetPosition - vesselTransform.position + rollUp * Mathf.Clamp((targetPosition - vesselTransform.position).magnitude / 500f, 0f, 1f) * upDirection, vesselTransform.up);
+
             //v/q
             float dynamicAdjustment = Mathf.Clamp(16 * (float)(vessel.srfSpeed / vessel.dynamicPressurekPa), 0, 1.2f);
 
             float rollError = Misc.Misc.SignedAngle(currentRoll, rollTarget, vesselTransform.right);
             float steerRoll = (steerMult * 0.0015f * rollError);
-            float rollDamping = (.10f * steerDamping * -localAngVel.y);
+            float rollDamping = (.10f * SteerDampening(Vector3.Angle(targetPosition - vesselTransform.position, vesselTransform.up)) * -localAngVel.y);
             steerRoll -= rollDamping;
             steerRoll *= dynamicAdjustment;
 
@@ -959,8 +1116,8 @@ namespace BDArmory.Modules
                 pitchError = pitchError * Mathf.Clamp01((21 - Mathf.Exp(Mathf.Abs(rollError) / 30)) / 20);
             }
 
-            float steerPitch = (0.015f * steerMult * pitchError) - (steerDamping * -localAngVel.x * (1 + steerKiAdjust));
-            float steerYaw = (0.005f * steerMult * yawError) - (steerDamping * 0.2f * -localAngVel.z * (1 + steerKiAdjust));
+            float steerPitch = (0.015f * steerMult * pitchError) - (SteerDampening(Vector3.Angle(targetPosition - vesselTransform.position, vesselTransform.up)) * -localAngVel.x * (1 + steerKiAdjust));
+            float steerYaw = (0.005f * steerMult * yawError) - (SteerDampening(Vector3.Angle(targetPosition - vesselTransform.position, vesselTransform.up)) * 0.2f * -localAngVel.z * (1 + steerKiAdjust));
 
             pitchIntegral += pitchError;
             yawIntegral += yawError;
@@ -1141,7 +1298,7 @@ namespace BDArmory.Modules
 
                     if (threatDirectionFactor > 0.9f)     //within 28 degrees in front
                     { // This adds +-1 to the left or right relative to the breakTarget vector, regardless of the size of breakTarget (that seems wrong)
-                        breakTarget += Vector3.Cross(threatRelativePosition.normalized, Mathf.Sign(Mathf.Sin((float)vessel.missionTime / 2)) * vessel.upAxis);
+                        breakTarget += 500f / threatRelativePosition.magnitude * Vector3.Cross(threatRelativePosition.normalized, Mathf.Sign(Mathf.Sin((float)vessel.missionTime / 2)) * vessel.upAxis);
                         debugString.Append($" from directly ahead!");
                     }
                     else if (threatDirectionFactor < -0.9) //within ~28 degrees behind
@@ -1290,6 +1447,8 @@ namespace BDArmory.Modules
         bool FlyAvoidTerrain(FlightCtrlState s) // Check for terrain ahead.
         {
             if (initialTakeOff) return false; // Don't do anything during the initial take-off.
+            bool initialCorrection = !avoidingTerrain;
+            float controlLagTime = 1.5f; // Time to fully adjust control surfaces. (Typical values seem to be 0.286s -- 1s for neutral to deployed according to wing lift comparison.) FIXME maybe this could also be a slider.
 
             ++terrainAlertTicker;
             int terrainAlertTickerThreshold = BDArmorySettings.TERRAIN_ALERT_FREQUENCY * (int)(1 + Mathf.Pow((float)vessel.radarAltitude / 500.0f, 2.0f) / Mathf.Max(1.0f, (float)vessel.srfSpeed / 150.0f)); // Scale with altitude^2 / speed.
@@ -1298,14 +1457,12 @@ namespace BDArmory.Modules
                 terrainAlertTicker = 0;
 
                 // Reset/initialise some variables.
-                if (!avoidingTerrain)
-                    terrainAlertCorrectionDirection = vessel.srf_vel_direction; // Start out with the correction being nothing.
                 avoidingTerrain = false; // Reset the alert.
                 if (vessel.radarAltitude > minAltitude)
                     belowMinAltitude = false; // Also, reset the belowMinAltitude alert if it's active because of avoiding terrain.
                 terrainAlertDistance = -1.0f; // Reset the terrain alert distance.
                 float turnRadiusTwiddleFactor = turnRadiusTwiddleFactorMax; // A twiddle factor based on the orientation of the vessel, since it often takes considerable time to re-orient before avoiding the terrain. Start with the worst value.
-                terrainAlertThreatRange = 150.0f + turnRadiusTwiddleFactor * turnRadius; // The distance to the terrain to consider.
+                terrainAlertThreatRange = 150.0f + turnRadiusTwiddleFactor * turnRadius + (float)vessel.srfSpeed * controlLagTime; // The distance to the terrain to consider.
 
                 // First, look 45° down, up, left and right from our velocity direction for immediate danger. (This should cover most immediate dangers.)
                 Ray rayForwardUp = new Ray(vessel.transform.position, (vessel.srf_vel_direction - relativeVelocityDownDirection).normalized);
@@ -1315,22 +1472,22 @@ namespace BDArmory.Modules
                 RaycastHit rayHit;
                 if (Physics.Raycast(rayForwardDown, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15)) // sqrt(2) should be sufficient, so 1.5 will cover it.
                 {
-                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertDistance = rayHit.distance * -Vector3.Dot(rayHit.normal, vessel.srf_vel_direction);
                     terrainAlertNormal = rayHit.normal;
                 }
                 if (Physics.Raycast(rayForwardUp, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
                 {
-                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertDistance = rayHit.distance * -Vector3.Dot(rayHit.normal, vessel.srf_vel_direction);
                     terrainAlertNormal = rayHit.normal;
                 }
                 if (Physics.Raycast(rayForwardLeft, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
                 {
-                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertDistance = rayHit.distance * -Vector3.Dot(rayHit.normal, vessel.srf_vel_direction);
                     terrainAlertNormal = rayHit.normal;
                 }
-                if (Physics.Raycast(rayForwardDown, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
+                if (Physics.Raycast(rayForwardRight, out rayHit, 1.5f * terrainAlertDetectionRadius, 1 << 15) && (terrainAlertDistance < 0.0f || rayHit.distance < terrainAlertDistance))
                 {
-                    terrainAlertDistance = rayHit.distance;
+                    terrainAlertDistance = rayHit.distance * -Vector3.Dot(rayHit.normal, vessel.srf_vel_direction);
                     terrainAlertNormal = rayHit.normal;
                 }
                 if (terrainAlertDistance > 0)
@@ -1346,8 +1503,10 @@ namespace BDArmory.Modules
                     {
                         // Check if there's anything directly ahead.
                         ray = new Ray(vessel.transform.position, vessel.srf_vel_direction);
-                        terrainAlertDistance = rayHit.distance;
+                        terrainAlertDistance = rayHit.distance * -Vector3.Dot(rayHit.normal, vessel.srf_vel_direction); // Distance to terrain along direction of terrain normal.
                         terrainAlertNormal = rayHit.normal;
+                        terrainAlertDebugPos = rayHit.point;
+                        terrainAlertDebugDir = rayHit.normal;
                         if (!Physics.Raycast(ray, out rayHit, terrainAlertThreatRange, 1 << 15)) // Nothing directly ahead, so we're just barely avoiding terrain.
                         {
                             // Change the terrain normal and direction as we want to just fly over it instead of banking away from it.
@@ -1356,11 +1515,32 @@ namespace BDArmory.Modules
                         }
                         else
                         { terrainAlertDirection = (vessel.srf_vel_direction - Vector3.Dot(vessel.srf_vel_direction, terrainAlertNormal) * terrainAlertNormal).normalized; }
-                        float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.Velocity() / vessel.srfSpeed, terrainAlertNormal)); // sin(theta) (measured relative to the plane of the surface).
+                        float sinTheta = Math.Min(0.0f, Vector3.Dot(vessel.srf_vel_direction, terrainAlertNormal)); // sin(theta) (measured relative to the plane of the surface).
                         float oneMinusCosTheta = 1.0f - Mathf.Sqrt(Math.Max(0.0f, 1.0f - sinTheta * sinTheta));
                         turnRadiusTwiddleFactor = (turnRadiusTwiddleFactorMin + turnRadiusTwiddleFactorMax) / 2.0f - (turnRadiusTwiddleFactorMax - turnRadiusTwiddleFactorMin) / 2.0f * Vector3.Dot(terrainAlertNormal, -vessel.transform.forward); // This would depend on roll rate (i.e., how quickly the vessel can reorient itself to perform the terrain avoidance maneuver) and probably other things.
-                        if (terrainAlertDistance < 150.0f + turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta) // Only do something about it if the estimated turn amount is a problem.
-                        { avoidingTerrain = true; }
+                        float controlLagCompensation = Mathf.Max(0f, -Vector3.Dot(AIUtils.PredictPosition(vessel, controlLagTime * turnRadiusTwiddleFactor) - vessel.transform.position, terrainAlertNormal)); // Include twiddle factor as more re-orienting requires more control surface movement.
+                        float terrainAlertThreshold = 150.0f + turnRadiusTwiddleFactor * turnRadius * oneMinusCosTheta + controlLagCompensation;
+                        if (terrainAlertDistance < terrainAlertThreshold) // Only do something about it if the estimated turn amount is a problem.
+                        {
+                            avoidingTerrain = true;
+
+                            // Shoot new ray in direction theta/2 (i.e., the point where we should be parallel to the surface) above velocity direction to check if the terrain slope is increasing.
+                            float phi = -Mathf.Asin(sinTheta) / 2f;
+                            Vector3 upcoming = Vector3.RotateTowards(vessel.srf_vel_direction, terrainAlertNormal, phi, 0f);
+                            ray = new Ray(vessel.transform.position, upcoming);
+                            terrainAlertDebugDraw2 = false;
+                            if (Physics.Raycast(ray, out rayHit, terrainAlertThreatRange, 1 << 15))
+                            {
+                                if (rayHit.distance < terrainAlertDistance / Mathf.Sin(phi)) // Hit terrain closer than expected => terrain slope is increasing relative to our velocity direction.
+                                {
+                                    terrainAlertDebugDraw2 = true;
+                                    terrainAlertDebugPos2 = rayHit.point;
+                                    terrainAlertDebugDir2 = rayHit.normal;
+                                    terrainAlertNormal = rayHit.normal; // Use the normal of the steeper terrain (relative to our velocity).
+                                    terrainAlertDirection = (vessel.srf_vel_direction - Vector3.Dot(vessel.srf_vel_direction, terrainAlertNormal) * terrainAlertNormal).normalized;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1369,15 +1549,15 @@ namespace BDArmory.Modules
             {
                 belowMinAltitude = true; // Inform other parts of the code to behave as if we're below minimum altitude.
                 float maxAngle = 70.0f * Mathf.Deg2Rad; // Maximum angle (towards surface normal) to aim.
-                float adjustmentFactor = Mathf.Clamp(1.0f - Mathf.Pow(terrainAlertDistance / terrainAlertThreatRange, 2.0f), 0.0f, 1.0f); // Don't yank too hard as it kills our speed too much.
+                float adjustmentFactor = 1f; // Mathf.Clamp(1.0f - Mathf.Pow(terrainAlertDistance / terrainAlertThreatRange, 2.0f), 0.0f, 1.0f); // Don't yank too hard as it kills our speed too much. (This doesn't seem necessary.)
                 // First, aim up to maxAngle towards the surface normal.
                 Vector3 correctionDirection = Vector3.RotateTowards(terrainAlertDirection, terrainAlertNormal, maxAngle * adjustmentFactor, 0.0f);
                 // Then, adjust the vertical pitch for our speed (to try to avoid stalling).
                 Vector3 horizontalCorrectionDirection = Vector3.ProjectOnPlane(correctionDirection, upDirection).normalized;
-                correctionDirection = Vector3.RotateTowards(correctionDirection, horizontalCorrectionDirection, Mathf.Max(0.0f, (1.0f - (float)vessel.srfSpeed / 120.0f) * maxAngle * Mathf.Deg2Rad) * adjustmentFactor, 0.0f); // Rotate up to maxAngle back towards horizontal depending on speed < 120m/s.
+                correctionDirection = Vector3.RotateTowards(correctionDirection, horizontalCorrectionDirection, Mathf.Max(0.0f, (1.0f - (float)vessel.srfSpeed / 120.0f) / 2.0f * maxAngle * Mathf.Deg2Rad) * adjustmentFactor, 0.0f); // Rotate up to maxAngle/2 back towards horizontal depending on speed < 120m/s.
                 float alpha = Time.deltaTime;
                 float beta = Mathf.Pow(1.0f - alpha, terrainAlertTickerThreshold);
-                terrainAlertCorrectionDirection = (beta * terrainAlertCorrectionDirection + (1.0f - beta) * correctionDirection).normalized; // Update our target direction over several frames. (Expansion of N iterations of A = A*(1-a) + B*a. Not exact due to normalisation in the loop, but good enough.)
+                terrainAlertCorrectionDirection = initialCorrection ? terrainAlertCorrectionDirection : (beta * terrainAlertCorrectionDirection + (1.0f - beta) * correctionDirection).normalized; // Update our target direction over several frames (if it's not the initial correction). (Expansion of N iterations of A = A*(1-a) + B*a. Not exact due to normalisation in the loop, but good enough.)
                 FlyToPosition(s, vessel.transform.position + terrainAlertCorrectionDirection * 100);
 
                 // Update status and book keeping.
@@ -1416,7 +1596,7 @@ namespace BDArmory.Modules
 
                 // Check for collisions with other vessels.
                 bool vesselCollision = false;
-                Vector3 collisionAvoidDirection = vessel.srf_vel_direction;
+                collisionAvoidDirection = vessel.srf_vel_direction;
                 List<Vessel>.Enumerator vs = BDATargetManager.LoadedVessels.GetEnumerator();
                 while (vs.MoveNext())
                 {
@@ -1776,6 +1956,16 @@ namespace BDArmory.Modules
             }
         }
 
+        private float SteerDampening(float angleToTarget)
+        { //adjusts steer dampening in relativity to a vessels angle to its target position
+            //check for valid angle to target
+            if (!dynamicSteerDampening)
+            { return steerDamping; }
+            else if (angleToTarget >= 180)
+            { return DynamicDampeningMin; }
+            { return Mathf.Clamp((float)(Math.Pow((180 - angleToTarget) / 180, dynamicSteerDampeningFactor) * DynamicDampeningMax), DynamicDampeningMin, DynamicDampeningMax); }
+        }
+
         public override bool IsValidFixedWeaponTarget(Vessel target)
         {
             if (!vessel) return false;
@@ -1949,6 +2139,20 @@ namespace BDArmory.Modules
 
             BDGUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position, vesselTransform.position + rollTarget, 2, Color.blue);
             BDGUIUtils.DrawLineBetweenWorldPositions(vesselTransform.position + (0.05f * vesselTransform.right), vesselTransform.position + (0.05f * vesselTransform.right) + angVelRollTarget, 2, Color.green);
+            if (avoidingTerrain)
+            {
+                BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, terrainAlertDebugPos, 2, Color.cyan);
+                BDGUIUtils.DrawLineBetweenWorldPositions(terrainAlertDebugPos, terrainAlertDebugPos + 100 * terrainAlertDebugDir, 2, Color.cyan);
+                if (terrainAlertDebugDraw2)
+                {
+                    BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, terrainAlertDebugPos2, 2, Color.yellow);
+                    BDGUIUtils.DrawLineBetweenWorldPositions(terrainAlertDebugPos2, terrainAlertDebugPos2 + 100 * terrainAlertDebugDir2, 2, Color.yellow);
+                }
+                BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, vessel.transform.position + 100 * (vessel.srf_vel_direction - relativeVelocityDownDirection).normalized, 1, Color.grey);
+                BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, vessel.transform.position + 100 * (vessel.srf_vel_direction + relativeVelocityDownDirection).normalized, 1, Color.grey);
+                BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, vessel.transform.position + 100 * (vessel.srf_vel_direction - relativeVelocityRightDirection).normalized, 1, Color.grey);
+                BDGUIUtils.DrawLineBetweenWorldPositions(vessel.transform.position, vessel.transform.position + 100 * (vessel.srf_vel_direction + relativeVelocityRightDirection).normalized, 1, Color.grey);
+            }
         }
     }
 }
