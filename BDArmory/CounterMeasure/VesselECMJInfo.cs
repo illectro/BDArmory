@@ -63,7 +63,7 @@ namespace BDArmory.CounterMeasure
             Destroy(this);
         }
 
-        void OnPartDie(Part p = null)
+        void OnPartDie(Part p)
         {
             if (gameObject.activeInHierarchy)
             {

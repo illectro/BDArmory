@@ -33,6 +33,7 @@ namespace BDArmory.Control
         public int cleanKills;
         public int deaths;
         public double spawnTime;
+        public bool spawning;
         public HashSet<string> everyoneWhoHitMe = new HashSet<string>();
     }
 
@@ -580,13 +581,9 @@ namespace BDArmory.Control
         private static SemaphoreSlim spawnLock = new SemaphoreSlim(1,1);
         public IEnumerator SpawnCraftRoutine(string craftUrl, string name)
         {
-            var limit = 6;
-            while (!spawnLock.Wait(10))
+            while (!spawnLock.Wait(100))
             {
-                // enter the lock anyways if someone else gets stuck. 
-                if (limit <= 0) break;
-                yield return new WaitForSeconds(1f);
-                limit--;
+                yield return new WaitForSeconds(.3f);
             }
 
             try
@@ -635,7 +632,7 @@ namespace BDArmory.Control
                         Scores[name].lastPersonWhoHitMe = "";
                         Scores[name].whoGotCleanKill = "";
                         Scores[name].everyoneWhoHitMe.Clear();
-                        DeathOrder.Remove(name);
+                        Scores[name].spawning = false;
                     }
                     catch (Exception ex)
                     {
@@ -686,6 +683,10 @@ namespace BDArmory.Control
                     }
 
                     Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] End spawning vessel " + name);
+                    
+                    // reset this to maybe get rid of errors
+                    GameEvents.onPartResourceFlowModeChange = new EventData<GameEvents.HostedFromToAction<PartResource, PartResource.FlowMode>>("onPartResourceFlowModeChange");
+                    GameEvents.onPartResourceFlowStateChange = new EventData<GameEvents.HostedFromToAction<PartResource, bool>>("onPartResourceFlowStateChange");
                 }
             }
             finally
@@ -1189,9 +1190,8 @@ namespace BDArmory.Control
                     {
                         if (DeathOrder.ContainsKey(vesselName))
                         {
-                            // TODO: this gets logged an awful lot which is weird...
-                            Debug.Log("[BDArmoryCompetition] Dead vessel found alive " + vesselName);
-                            //DeathOrder.Remove(vesselName);
+                            // when in respawn mode, we will remove the plane from death order this way. so we don't have multiple functions modifying this
+                            DeathOrder.Remove(vesselName);
                         }
                         // vessel is still alive
                         alive.Add(vesselName);
@@ -1459,7 +1459,7 @@ namespace BDArmory.Control
                             }
                             else
                             {
-                                competitionStatus = key + " was killed";
+                                competitionStatus = key + " died";
                                 Debug.Log("[BDArmoryCompetition: " + CompetitionID.ToString() + "]: " + key + ":KILLED:NOBODY");
                             }
                         }
@@ -1502,11 +1502,12 @@ namespace BDArmory.Control
                 foreach (string key in Scores.Keys)
                 {
                     // check everyone who's no longer alive
-                    if (!alive.Contains(key))
+                    if (!alive.Contains(key) && !Scores[key].spawning)
                     {
                         Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} not alive.");
                         if (craftUrls.TryGetValue(key, out var craftUrl))
                         {
+                            Scores[key].spawning = true;
                             Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} respawning.");
                             StartCoroutine(SpawnCraftRoutine(craftUrl, key));
                         }
