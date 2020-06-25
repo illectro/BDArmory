@@ -326,6 +326,7 @@ namespace BDArmory.Control
                 yield break;
             }
 
+            // TODO: storing these like this means that if a vessel blows up while in this routine, things will die
             var leaders = new List<IBDAIControl>();
             using (var pilotList = pilots.GetEnumerator())
                 while (pilotList.MoveNext())
@@ -579,15 +580,21 @@ namespace BDArmory.Control
         private static SemaphoreSlim spawnLock = new SemaphoreSlim(1,1);
         public IEnumerator SpawnCraftRoutine(string craftUrl, string name)
         {
+            var limit = 6;
             while (!spawnLock.Wait(10))
             {
+                // enter the lock anyways if someone else gets stuck. 
+                if (limit <= 0) break;
                 yield return new WaitForSeconds(1f);
+                limit--;
             }
+
             try
             {
                 yield return new WaitForSeconds(1f);
                 if (!BDATargetManager.LoadedVessels.Any(v => v.loaded && v.GetName() == name))
                 {
+                    Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] Start spawning vessel " + name);
                     KillTimer.Remove(name);
                     Scores[name].spawnTime = Planetarium.GetUniversalTime();
                     var vessel = SpawnCraft(craftUrl, .5d, FlightGlobals.camera_position);
@@ -609,7 +616,7 @@ namespace BDArmory.Control
                             Scores[hitter].kills++;
                         }
                     }
-                    
+
                     Scores[name].lastPersonWhoHitMe = "";
                     Scores[name].whoGotCleanKill = "";
                     Scores[name].everyoneWhoHitMe.Clear();
@@ -640,11 +647,20 @@ namespace BDArmory.Control
                             pilot.weaponManager.ToggleGuardMode();
                         }
                     }
+
+                    Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] End spawning vessel " + name);
                 }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel " + name + "\r\n" + ex);
             }
             finally
             {
-                spawnLock.Release();
+                if (spawnLock.CurrentCount == 0)
+                {
+                    spawnLock.Release();
+                }
             }
         }
         
@@ -1449,20 +1465,23 @@ namespace BDArmory.Control
 
             if (BDArmorySettings.SPAWN_VESSELS)
             {
+                Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, there are {Scores.Keys.Count} total.");
                 foreach (string key in Scores.Keys)
                 {
                     // check everyone who's no longer alive
                     if (!alive.Contains(key))
                     {
+                        Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} not alive.");
                         if (craftUrls.TryGetValue(key, out var craftUrl))
                         {
+                            Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} respawning.");
                             StartCoroutine(SpawnCraftRoutine(craftUrl, key));
                         }
                     }
                 }
             }
 
-            Debug.Log("[BDArmoryCompetition] Done With Update");
+            Debug.Log("[BDArmoryCompetition" + CompetitionID.ToString() + "] Done With Update");
         }
 
         private void KillVessel(Vessel vessel, string reason)
