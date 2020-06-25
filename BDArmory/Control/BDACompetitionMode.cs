@@ -1261,9 +1261,9 @@ namespace BDArmory.Control
                                     competitionStatus = vesselName + " is out of Ammunition";
                                 }
                             }
-                            var vesselAI = v.FindPartModuleImplementing<BDModulePilotAI>();
-                            if (vesselAI != null)
-                                vesselAI.outOfAmmo = true;
+                            // var vesselAI = v.FindPartModuleImplementing<BDModulePilotAI>();
+                            // if (vesselAI != null)
+                            //     vesselAI.outOfAmmo = true;
                         }
                     }
 
