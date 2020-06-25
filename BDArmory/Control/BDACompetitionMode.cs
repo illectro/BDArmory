@@ -595,65 +595,95 @@ namespace BDArmory.Control
                 if (!BDATargetManager.LoadedVessels.Any(v => v.loaded && v.GetName() == name))
                 {
                     Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] Start spawning vessel " + name);
-                    KillTimer.Remove(name);
-                    Scores[name].spawnTime = Planetarium.GetUniversalTime();
-                    var vessel = SpawnCraft(craftUrl, .5d, FlightGlobals.camera_position);
+                    Vessel vessel;
+                    
+                    try
+                    {
+                        KillTimer.Remove(name);
+                        Scores[name].spawnTime = Planetarium.GetUniversalTime();
+                        vessel = SpawnCraft(craftUrl, .5d, FlightGlobals.camera_position);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel (1) " + name + "\r\n" + ex);
+                        throw;
+                    }
 
                     while (!vessel.loaded || BDATargetManager.LoadedVessels.All(vv => vessel.id != vv.id))
                     {
                         yield return new WaitForSeconds(.1f);
                     }
 
-                    Scores[name].deaths++;
-                    if (!string.IsNullOrEmpty(Scores[name].whoGotCleanKill))
+                    try
                     {
-                        Scores[Scores[name].whoGotCleanKill].cleanKills++;
-                    }
-                    else if (Scores[name].everyoneWhoHitMe != null)
-                    {
-                        foreach (var hitter in Scores[name].everyoneWhoHitMe)
+                        Scores[name].deaths++;
+                        if (!string.IsNullOrEmpty(Scores[name].whoGotCleanKill))
                         {
-                            Scores[hitter].kills++;
+                            Scores[Scores[name].whoGotCleanKill].cleanKills++;
                         }
-                    }
+                        else if (Scores[name].everyoneWhoHitMe != null)
+                        {
+                            foreach (var hitter in Scores[name].everyoneWhoHitMe)
+                            {
+                                Scores[hitter].kills++;
+                            }
+                        }
 
-                    Scores[name].lastPersonWhoHitMe = "";
-                    Scores[name].whoGotCleanKill = "";
-                    Scores[name].everyoneWhoHitMe.Clear();
-                    DeathOrder.Remove(name);
+                        Scores[name].lastPersonWhoHitMe = "";
+                        Scores[name].whoGotCleanKill = "";
+                        Scores[name].everyoneWhoHitMe.Clear();
+                        DeathOrder.Remove(name);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel (2) " + name + "\r\n" + ex);
+                    }
+                    
                     yield return new WaitForSeconds(.5f);
 
-                    var team = teams[vessel.GetName()];
-                    var pilot = vessel.FindPartModuleImplementing<IBDAIControl>();
-                    if (pilot != null && pilot.weaponManager != null)
+                    try
                     {
-                        Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] Setting team " + team + " for " + vessel.GetName());
-                        pilot.weaponManager.SetTeam(BDTeam.Get(team));
+                        var team = teams[vessel.GetName()];
+                        var pilot = vessel.FindPartModuleImplementing<IBDAIControl>();
+                        if (pilot != null && pilot.weaponManager != null)
+                        {
+                            Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] Setting team " + team + " for " + vessel.GetName());
+                            pilot.weaponManager.SetTeam(BDTeam.Get(team));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel (3) " + name + "\r\n" + ex);
                     }
 
                     yield return new WaitForSeconds(1f);
-                    vessel.Landed = false;
-                    vessel.Splashed = false;
-                    vessel.situation = Vessel.Situations.FLYING;
-                    vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
-
-                    if (pilot != null && pilot.weaponManager)
+                    
+                    try
                     {
-                        BDArmory.Misc.Misc.fireNextNonEmptyStage(pilot.vessel);
-                        pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
-                        pilot.CommandTakeOff();
-                        if (!pilot.weaponManager.guardMode)
+                        vessel.Landed = false;
+                        vessel.Splashed = false;
+                        vessel.situation = Vessel.Situations.FLYING;
+                        vessel.ActionGroups.SetGroup(KSPActionGroup.Gear, true);
+                        
+                        var pilot = vessel.FindPartModuleImplementing<IBDAIControl>();
+                        if (pilot != null && pilot.weaponManager)
                         {
-                            pilot.weaponManager.ToggleGuardMode();
+                            BDArmory.Misc.Misc.fireNextNonEmptyStage(pilot.vessel);
+                            pilot.vessel.ActionGroups.ToggleGroup(KM_dictAG[1]);
+                            pilot.CommandTakeOff();
+                            if (!pilot.weaponManager.guardMode)
+                            {
+                                pilot.weaponManager.ToggleGuardMode();
+                            }
                         }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel " + name + "\r\n" + ex);
                     }
 
                     Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] End spawning vessel " + name);
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("[BDArmoryCompetition:" + CompetitionID.ToString() + "] ERROR spawning vessel " + name + "\r\n" + ex);
             }
             finally
             {
