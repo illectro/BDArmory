@@ -581,8 +581,10 @@ namespace BDArmory.Control
         private static SemaphoreSlim spawnLock = new SemaphoreSlim(1,1);
         public IEnumerator SpawnCraftRoutine(string craftUrl, string name)
         {
+            Scores[name].spawning = true;
             while (!spawnLock.Wait(100))
             {
+                Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "] waiting to spawn vessel " + name);
                 yield return new WaitForSeconds(.3f);
             }
 
@@ -632,7 +634,6 @@ namespace BDArmory.Control
                         Scores[name].lastPersonWhoHitMe = "";
                         Scores[name].whoGotCleanKill = "";
                         Scores[name].everyoneWhoHitMe.Clear();
-                        Scores[name].spawning = false;
                     }
                     catch (Exception ex)
                     {
@@ -691,6 +692,7 @@ namespace BDArmory.Control
             }
             finally
             {
+                Scores[name].spawning = false;
                 if (spawnLock.CurrentCount == 0)
                 {
                     spawnLock.Release();
@@ -1507,7 +1509,6 @@ namespace BDArmory.Control
                         Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} not alive.");
                         if (craftUrls.TryGetValue(key, out var craftUrl))
                         {
-                            Scores[key].spawning = true;
                             Debug.Log("[BDArmoryCompetition:" + CompetitionID.ToString() + $"] Checking for vessels to spawn, {key} respawning.");
                             StartCoroutine(SpawnCraftRoutine(craftUrl, key));
                         }
