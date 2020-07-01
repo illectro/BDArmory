@@ -141,7 +141,7 @@ namespace BDArmory.Modules
         
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Evasion Toggle", advancedTweakable = true), //Toggle Dynamic Steer Dampening
          UI_Toggle(enabledText = "Enabled", disabledText = "Disabled", scene = UI_Scene.All),]
-        public bool EvasionToggle = false;
+        public bool EvasionToggle = true;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "Dynamic Steer Dampening", advancedTweakable = true), //Toggle Dynamic Steer Dampening
          UI_Toggle(enabledText = "Enabled", disabledText = "Disabled", scene = UI_Scene.All),]
