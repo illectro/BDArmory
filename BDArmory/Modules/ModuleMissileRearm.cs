@@ -236,7 +236,7 @@ namespace BDArmory.Modules
             // explicit awakening of the *base* module class.
             try
             {
-                module.Fields.GetEnumerator();
+                using (var field = module.Fields.GetEnumerator()) { };
             }
             catch
             {

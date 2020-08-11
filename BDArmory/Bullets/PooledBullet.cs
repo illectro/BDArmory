@@ -165,6 +165,14 @@ namespace BDArmory.Bullets
             leftPenetration = 1;
             wasInitiated = true;
             StartCoroutine(FrameDelayedRoutine());
+
+            // Log shots fired.
+            if (this.sourceVessel)
+            {
+                var aName = this.sourceVessel.GetName();
+                if (BDACompetitionMode.Instance && BDACompetitionMode.Instance.Scores.ContainsKey(aName))
+                    ++BDACompetitionMode.Instance.Scores[aName].shotsFired;
+            }
         }
 
         void OnDestroy()
@@ -504,18 +512,9 @@ namespace BDArmory.Bullets
             var aName = this.sourceVessel.GetName();
             var tName = hitPart.vessel.GetName();
 
-            if (aName != tName) {
+            if (aName != tName)
+            {
                 //Debug.Log("[BDArmory]: Weapon from " + aName + " damaged " + tName);
-
-                var whoShotWhoKey = aName + ":" + tName;
-                if (BDACompetitionMode.Instance.whoShotWho.ContainsKey(whoShotWhoKey))
-                {
-                    BDACompetitionMode.Instance.whoShotWho[whoShotWhoKey] += 1;
-                }
-                else
-                {
-                    BDACompetitionMode.Instance.whoShotWho[whoShotWhoKey] = 1;
-                }
 
                 // update scoring structure on attacker
                 if (BDACompetitionMode.Instance.Scores.ContainsKey(aName))
@@ -538,6 +537,10 @@ namespace BDArmory.Bullets
                     tData.lastPersonWhoHitMe = aName;
                     tData.lastHitTime = Planetarium.GetUniversalTime();
                     tData.everyoneWhoHitMe.Add(aName);
+                    if (tData.hitCounts.ContainsKey(aName))
+                        ++tData.hitCounts[aName];
+                    else
+                        tData.hitCounts.Add(aName, 1);
                 }
             }
 

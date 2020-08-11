@@ -34,35 +34,33 @@ namespace BDArmory.Misc
         public static AnimationState[] SetUpAnimation(string animationName, Part part) //Thanks Majiir!
         {
             List<AnimationState> states = new List<AnimationState>();
-            IEnumerator<UnityEngine.Animation> animation = part.FindModelAnimators(animationName).AsEnumerable().GetEnumerator();
-            while (animation.MoveNext())
-            {
-                if (animation.Current == null) continue;
-                AnimationState animationState = animation.Current[animationName];
-                animationState.speed = 0;
-                animationState.enabled = true;
-                animationState.wrapMode = WrapMode.ClampForever;
-                animation.Current.Blend(animationName);
-                states.Add(animationState);
-            }
-            animation.Dispose();
+            using (IEnumerator<UnityEngine.Animation> animation = part.FindModelAnimators(animationName).AsEnumerable().GetEnumerator())
+                while (animation.MoveNext())
+                {
+                    if (animation.Current == null) continue;
+                    AnimationState animationState = animation.Current[animationName];
+                    animationState.speed = 0;
+                    animationState.enabled = true;
+                    animationState.wrapMode = WrapMode.ClampForever;
+                    animation.Current.Blend(animationName);
+                    states.Add(animationState);
+                }
             return states.ToArray();
         }
 
         public static AnimationState SetUpSingleAnimation(string animationName, Part part)
         {
-            IEnumerator<UnityEngine.Animation> animation = part.FindModelAnimators(animationName).AsEnumerable().GetEnumerator();
-            while (animation.MoveNext())
-            {
-                if (animation.Current == null) continue;
-                AnimationState animationState = animation.Current[animationName];
-                animationState.speed = 0;
-                animationState.enabled = true;
-                animationState.wrapMode = WrapMode.ClampForever;
-                animation.Current.Blend(animationName);
-                return animationState;
-            }
-            animation.Dispose();
+            using (IEnumerator<UnityEngine.Animation> animation = part.FindModelAnimators(animationName).AsEnumerable().GetEnumerator())
+                while (animation.MoveNext())
+                {
+                    if (animation.Current == null) continue;
+                    AnimationState animationState = animation.Current[animationName];
+                    animationState.speed = 0;
+                    animationState.enabled = true;
+                    animationState.wrapMode = WrapMode.ClampForever;
+                    animation.Current.Blend(animationName);
+                    return animationState;
+                }
             return null;
         }
 

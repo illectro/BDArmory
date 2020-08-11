@@ -12,9 +12,12 @@ namespace BDArmory.Core
 
             foreach (KeyValuePair<string, ProtoDestructible> bldg in protoDestructibles)
             {
-                DestructibleBuilding building = bldg.Value.dBuildingRefs[0];
-                building.damageDecay = 600f;
-                building.impactMomentumThreshold *= 150;
+                using (var building = bldg.Value.dBuildingRefs.GetEnumerator())
+                    while( building.MoveNext())
+                    {
+                        building.Current.damageDecay = 600f;
+                        building.Current.impactMomentumThreshold *= 150;
+                    }
             }
         }
     }

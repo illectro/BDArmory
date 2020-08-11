@@ -14,7 +14,8 @@ namespace BDArmory.Misc
         public static Dictionary<string, string> Modules = new Dictionary<string, string>()
         {
             //{"WeaponModule", "Weapon"},
-            { "BDModuleSurfaceAI", "BDModule Surface AI"}
+            { "BDModuleSurfaceAI", "BDModule Surface AI"},
+            { "BDModulePilotAI", "BDModule Pilot AI"},
         };
 
         public void Start()

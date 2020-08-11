@@ -9,17 +9,17 @@ namespace BDArmory.UI
         public static BDInputInfo WEAP_FIRE_KEY = new BDInputInfo("mouse 0", "Fire");
 
         //TGP
-        public static BDInputInfo TGP_SLEW_RIGHT = new BDInputInfo("Slew Right");
-        public static BDInputInfo TGP_SLEW_LEFT = new BDInputInfo("Slew Left");
-        public static BDInputInfo TGP_SLEW_UP = new BDInputInfo("Slew Up");
-        public static BDInputInfo TGP_SLEW_DOWN = new BDInputInfo("Slew Down");
-        public static BDInputInfo TGP_LOCK = new BDInputInfo("Lock/Unlock");
-        public static BDInputInfo TGP_IN = new BDInputInfo("Zoom In");
-        public static BDInputInfo TGP_OUT = new BDInputInfo("Zoom Out");
-        public static BDInputInfo TGP_RADAR = new BDInputInfo("To Radar");
-        public static BDInputInfo TGP_SEND_GPS = new BDInputInfo("Send GPS");
-        public static BDInputInfo TGP_TO_GPS = new BDInputInfo("Slave to GPS");
-        public static BDInputInfo TGP_TURRETS = new BDInputInfo("Slave Turrets");
+        public static BDInputInfo TGP_SLEW_RIGHT = new BDInputInfo("[6]", "Slew Right");
+        public static BDInputInfo TGP_SLEW_LEFT = new BDInputInfo("[4]", "Slew Left");
+        public static BDInputInfo TGP_SLEW_UP = new BDInputInfo("[5]", "Slew Up");
+        public static BDInputInfo TGP_SLEW_DOWN = new BDInputInfo("[8]", "Slew Down");
+        public static BDInputInfo TGP_LOCK = new BDInputInfo("[9]", "Lock/Unlock");
+        public static BDInputInfo TGP_IN = new BDInputInfo("[0]", "Zoom In");
+        public static BDInputInfo TGP_OUT = new BDInputInfo("[.]", "Zoom Out");
+        public static BDInputInfo TGP_RADAR = new BDInputInfo("[3]", "To Radar");
+        public static BDInputInfo TGP_SEND_GPS = new BDInputInfo("[7]", "Send GPS");
+        public static BDInputInfo TGP_TO_GPS = new BDInputInfo("[2]", "Slave to GPS");
+        public static BDInputInfo TGP_TURRETS = new BDInputInfo("[1]", "Slave Turrets");
         public static BDInputInfo TGP_COM = new BDInputInfo("CoM-Track");
         public static BDInputInfo TGP_NV = new BDInputInfo("Toggle NV");
         public static BDInputInfo TGP_RESET = new BDInputInfo("Reset");
@@ -39,8 +39,8 @@ namespace BDArmory.UI
         public static BDInputInfo RADAR_TARGET_PREV = new BDInputInfo("Prev Target");
 
         // VESSEL SWITCHER
-        public static BDInputInfo VS_SWITCH_NEXT = new BDInputInfo("Next Vessel");
-        public static BDInputInfo VS_SWITCH_PREV = new BDInputInfo("Prev Vessel");
+        public static BDInputInfo VS_SWITCH_NEXT = new BDInputInfo("page up", "Next Vessel");
+        public static BDInputInfo VS_SWITCH_PREV = new BDInputInfo("page down", "Prev Vessel");
 
         public static void SaveSettings()
         {

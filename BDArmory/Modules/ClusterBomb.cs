@@ -109,44 +109,42 @@ namespace BDArmory.Modules
 
             missileLauncher.sfAudioSource.priority = 999;
 
-            List<GameObject>.Enumerator sub = submunitions.GetEnumerator();
-            while (sub.MoveNext())
-            {
-                if (sub.Current == null) continue;
-                sub.Current.SetActive(true);
-                sub.Current.transform.parent = null;
-                Vector3 direction = (sub.Current.transform.position - part.transform.position).normalized;
-                Rigidbody subRB = sub.Current.GetComponent<Rigidbody>();
-                subRB.isKinematic = false;
-                subRB.velocity = part.rb.velocity + Krakensbane.GetFrameVelocityV3f() +
-                                 (UnityEngine.Random.Range(submunitionMaxSpeed / 10, submunitionMaxSpeed) * direction);
+            using (List<GameObject>.Enumerator sub = submunitions.GetEnumerator())
+                while (sub.MoveNext())
+                {
+                    if (sub.Current == null) continue;
+                    sub.Current.SetActive(true);
+                    sub.Current.transform.parent = null;
+                    Vector3 direction = (sub.Current.transform.position - part.transform.position).normalized;
+                    Rigidbody subRB = sub.Current.GetComponent<Rigidbody>();
+                    subRB.isKinematic = false;
+                    subRB.velocity = part.rb.velocity + Krakensbane.GetFrameVelocityV3f() +
+                                     (UnityEngine.Random.Range(submunitionMaxSpeed / 10, submunitionMaxSpeed) * direction);
 
-                Submunition subScript = sub.Current.AddComponent<Submunition>();
-                subScript.enabled = true;
-                subScript.deployed = true;
-                subScript.blastForce = missileLauncher.GetTntMass();
-                subScript.blastHeat = missileLauncher.blastHeat;
-                subScript.blastRadius = missileLauncher.GetBlastRadius();
-                subScript.subExplModelPath = subExplModelPath;
-                subScript.subExplSoundPath = subExplSoundPath;
-                sub.Current.AddComponent<KSPForceApplier>();
-            }
+                    Submunition subScript = sub.Current.AddComponent<Submunition>();
+                    subScript.enabled = true;
+                    subScript.deployed = true;
+                    subScript.blastForce = missileLauncher.GetTntMass();
+                    subScript.blastHeat = missileLauncher.blastHeat;
+                    subScript.blastRadius = missileLauncher.GetBlastRadius();
+                    subScript.subExplModelPath = subExplModelPath;
+                    subScript.subExplSoundPath = subExplSoundPath;
+                    sub.Current.AddComponent<KSPForceApplier>();
+                }
 
-            List<GameObject>.Enumerator fairing = fairings.GetEnumerator();
-            while (fairing.MoveNext())
-            {
-                if (fairing.Current == null) continue;
-                Vector3 direction = (fairing.Current.transform.position - part.transform.position).normalized;
-                Rigidbody fRB = fairing.Current.GetComponent<Rigidbody>();
-                fRB.isKinematic = false;
-                fRB.velocity = part.rb.velocity + Krakensbane.GetFrameVelocityV3f() + ((submunitionMaxSpeed + 2) * direction);
-                fairing.Current.AddComponent<KSPForceApplier>();
-                fairing.Current.GetComponent<KSPForceApplier>().drag = 0.2f;
-                ClusterBombFairing fairingScript = fairing.Current.AddComponent<ClusterBombFairing>();
-                fairingScript.deployed = true;
-            }
-
-            fairing.Dispose();
+            using (List<GameObject>.Enumerator fairing = fairings.GetEnumerator())
+                while (fairing.MoveNext())
+                {
+                    if (fairing.Current == null) continue;
+                    Vector3 direction = (fairing.Current.transform.position - part.transform.position).normalized;
+                    Rigidbody fRB = fairing.Current.GetComponent<Rigidbody>();
+                    fRB.isKinematic = false;
+                    fRB.velocity = part.rb.velocity + Krakensbane.GetFrameVelocityV3f() + ((submunitionMaxSpeed + 2) * direction);
+                    fairing.Current.AddComponent<KSPForceApplier>();
+                    fairing.Current.GetComponent<KSPForceApplier>().drag = 0.2f;
+                    ClusterBombFairing fairingScript = fairing.Current.AddComponent<ClusterBombFairing>();
+                    fairingScript.deployed = true;
+                }
 
             part.explosionPotential = 0;
             missileLauncher.HasFired = false;

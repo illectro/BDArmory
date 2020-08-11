@@ -279,14 +279,14 @@ namespace BDArmory.UI
         {
             float heatScore = 0f;
 
-            List<Part>.Enumerator part = v.Parts.GetEnumerator();
-            while (part.MoveNext())
-            {
-                if (!part.Current) continue;
+            using (List<Part>.Enumerator part = v.Parts.GetEnumerator())
+                while (part.MoveNext())
+                {
+                    if (!part.Current) continue;
 
-                float thisScore = (float)(part.Current.thermalInternalFluxPrevious + part.Current.skinTemperature);
-                heatScore = Mathf.Max(heatScore, thisScore);
-            }
+                    float thisScore = (float)(part.Current.thermalInternalFluxPrevious + part.Current.skinTemperature);
+                    heatScore = Mathf.Max(heatScore, thisScore);
+                }
 
             return heatScore;
         }
@@ -298,32 +298,32 @@ namespace BDArmory.UI
         {
             TargetSignatureData flareTarget = TargetSignatureData.noTarget;
 
-            List<CMFlare>.Enumerator flare = BDArmorySetup.Flares.GetEnumerator();
-            while (flare.MoveNext())
-            {
-                if (!flare.Current) continue;
-
-                float angle = Vector3.Angle(flare.Current.transform.position - ray.origin, ray.direction);
-                if (angle < scanRadius)
+            using (List<CMFlare>.Enumerator flare = BDArmorySetup.Flares.GetEnumerator())
+                while (flare.MoveNext())
                 {
-                    float score = flare.Current.thermal * Mathf.Clamp01(15 / angle);
+                    if (!flare.Current) continue;
 
-                    score *= Mathf.Pow(1400, 2) / Mathf.Clamp((flare.Current.transform.position - ray.origin).sqrMagnitude, 90000, 36000000);
-                    score *= Mathf.Clamp(Vector3.Angle(flare.Current.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
-
-                    // check acceptable range:
-                    // flare cannot be too cool, but also not too bright
-                    if ((score > heatSignature * 0.9) && (score < heatSignature * 1.15))
+                    float angle = Vector3.Angle(flare.Current.transform.position - ray.origin, ray.direction);
+                    if (angle < scanRadius)
                     {
-                        flareTarget = new TargetSignatureData(flare.Current, score);
+                        float score = flare.Current.thermal * Mathf.Clamp01(15 / angle);
+
+                        score *= Mathf.Pow(1400, 2) / Mathf.Clamp((flare.Current.transform.position - ray.origin).sqrMagnitude, 90000, 36000000);
+                        score *= Mathf.Clamp(Vector3.Angle(flare.Current.transform.position - ray.origin, -VectorUtils.GetUpDirection(ray.origin)) / 90, 0.5f, 1.5f);
+
+                        // check acceptable range:
+                        // flare cannot be too cool, but also not too bright
+                        if ((score > heatSignature * 0.9) && (score < heatSignature * 1.15))
+                        {
+                            flareTarget = new TargetSignatureData(flare.Current, score);
+                        }
                     }
                 }
-            }
 
             return flareTarget;
         }
 
-        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel,  Ray ray, float scanRadius, float highpassThreshold, bool allAspect, MissileFire mf = null, bool favorGroundTargets = false)
+        public static TargetSignatureData GetHeatTarget(Vessel sourceVessel, Vessel missileVessel, Ray ray, float scanRadius, float highpassThreshold, bool allAspect, MissileFire mf = null, bool favorGroundTargets = false)
         {
             float minMass = 0.05f;  //otherwise the RAMs have trouble shooting down incoming missiles
             TargetSignatureData finalData = TargetSignatureData.noTarget;
@@ -349,7 +349,7 @@ namespace BDArmory.UI
                 {
                     // for AGM heat guidance
                     continue;
-                } 
+                }
 
                 TargetInfo tInfo = vessel.gameObject.GetComponent<TargetInfo>();
 
@@ -742,24 +742,24 @@ namespace BDArmory.UI
 
             float finalTargetSuitability = 0;        //this will determine how suitable the target is, based on where it is located relative to the targeting vessel and how far it is
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current.NumFriendliesEngaging(mf.Team) >= 2) continue;
-                if (target.Current && target.Current.Vessel && target.Current.isFlying && !target.Current.isMissile && target.Current.isThreat)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    Vector3 targetRelPos = target.Current.Vessel.vesselTransform.position - mf.vessel.vesselTransform.position;
-                    float targetSuitability = Vector3.Dot(targetRelPos.normalized, mf.vessel.ReferenceTransform.up);       //prefer targets ahead to those behind
-                    targetSuitability += 500 / (targetRelPos.magnitude + 100);
-
-                    if (finalTarget == null || (target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team)) || targetSuitability > finalTargetSuitability + finalTarget.NumFriendliesEngaging(mf.Team))
+                    if (target.Current == null) continue;
+                    if (target.Current.NumFriendliesEngaging(mf.Team) >= 2) continue;
+                    if (target.Current && target.Current.Vessel && target.Current.isFlying && !target.Current.isMissile && target.Current.isThreat)
                     {
-                        finalTarget = target.Current;
-                        finalTargetSuitability = targetSuitability;
+                        Vector3 targetRelPos = target.Current.Vessel.vesselTransform.position - mf.vessel.vesselTransform.position;
+                        float targetSuitability = Vector3.Dot(targetRelPos.normalized, mf.vessel.ReferenceTransform.up);       //prefer targets ahead to those behind
+                        targetSuitability += 500 / (targetRelPos.magnitude + 100);
+
+                        if (finalTarget == null || (target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team)) || targetSuitability > finalTargetSuitability + finalTarget.NumFriendliesEngaging(mf.Team))
+                        {
+                            finalTarget = target.Current;
+                            finalTargetSuitability = targetSuitability;
+                        }
                     }
                 }
-            }
 
             return finalTarget;
         }
@@ -771,28 +771,27 @@ namespace BDArmory.UI
 
             float finalTargetSuitability = 0;    //this will determine how suitable the target is, based on where it is located relative to the targeting vessel and how far it is
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null || !target.Current.Vessel || target.Current.isLandedOrSurfaceSplashed || target.Current.isMissile || !target.Current.isThreat) continue;
-                Vector3 targetRelPos = target.Current.Vessel.vesselTransform.position - mf.vessel.vesselTransform.position;
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
+                {
+                    if (target.Current == null || !target.Current.Vessel || target.Current.isLandedOrSurfaceSplashed || target.Current.isMissile || !target.Current.isThreat) continue;
+                    Vector3 targetRelPos = target.Current.Vessel.vesselTransform.position - mf.vessel.vesselTransform.position;
 
-                float distance, dot;
-                distance = targetRelPos.magnitude;
-                dot = Vector3.Dot(targetRelPos.normalized, mf.vessel.ReferenceTransform.up);
+                    float distance, dot;
+                    distance = targetRelPos.magnitude;
+                    dot = Vector3.Dot(targetRelPos.normalized, mf.vessel.ReferenceTransform.up);
 
-                if (distance > maxDistance || cosAngleCheck > dot)
-                    continue;
+                    if (distance > maxDistance || cosAngleCheck > dot)
+                        continue;
 
-                float targetSuitability = dot;       //prefer targets ahead to those behind
-                targetSuitability += 500 / (distance + 100);        //same suitability check as above
+                    float targetSuitability = dot;       //prefer targets ahead to those behind
+                    targetSuitability += 500 / (distance + 100);        //same suitability check as above
 
-                if (finalTarget != null && !(targetSuitability > finalTargetSuitability)) continue;
-                //just pick the most suitable one
-                finalTarget = target.Current;
-                finalTargetSuitability = targetSuitability;
-            }
-            target.Dispose();
+                    if (finalTarget != null && !(targetSuitability > finalTargetSuitability)) continue;
+                    //just pick the most suitable one
+                    finalTarget = target.Current;
+                    finalTargetSuitability = targetSuitability;
+                }
             return finalTarget;
         }
 
@@ -801,32 +800,30 @@ namespace BDArmory.UI
         {
             TargetInfo finalTarget = null;
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null || !target.Current.Vessel || target.Current.weaponManager == mf) continue;
-                if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    finalTarget = target.Current;
+                    if (target.Current == null || !target.Current.Vessel || target.Current.weaponManager == mf) continue;
+                    if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
+                    {
+                        finalTarget = target.Current;
+                    }
                 }
-            }
-            target.Dispose();
             return finalTarget;
         }
 
         //returns the target that owns this weapon manager
         public static TargetInfo GetTargetFromWeaponManager(MissileFire mf)
         {
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current.Vessel && target.Current.weaponManager == mf)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    return target.Current;
+                    if (target.Current == null) continue;
+                    if (target.Current.Vessel && target.Current.weaponManager == mf)
+                    {
+                        return target.Current;
+                    }
                 }
-            }
-            target.Dispose();
             return null;
         }
 
@@ -834,19 +831,18 @@ namespace BDArmory.UI
         {
             TargetInfo finalTarget = null;
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile)
                     {
-                        finalTarget = target.Current;
+                        if (finalTarget == null || (target.Current.IsCloser(finalTarget, mf)))
+                        {
+                            finalTarget = target.Current;
+                        }
                     }
                 }
-            }
-            target.Dispose();
             return finalTarget;
         }
 
@@ -854,16 +850,15 @@ namespace BDArmory.UI
         {
             List<TargetInfo> finalTargets = new List<TargetInfo>();
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current))
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    finalTargets.Add(target.Current);
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !excluding.Contains(target.Current))
+                    {
+                        finalTargets.Add(target.Current);
+                    }
                 }
-            }
-            target.Dispose();
             return finalTargets;
         }
 
@@ -871,19 +866,43 @@ namespace BDArmory.UI
         {
             TargetInfo finalTarget = null;
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    if (finalTarget == null || target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat)
                     {
-                        finalTarget = target.Current;
+                        if (finalTarget == null || target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))
+                        {
+                            finalTarget = target.Current;
+                        }
                     }
                 }
-            }
-            target.Dispose();
+            return finalTarget;
+        }
+
+        // Select a target based on promixity, but biased towards targets ahead and the current target.
+        public static TargetInfo GetClosestTargetWithBiasAndHysteresis(MissileFire mf)
+        {
+            TargetInfo finalTarget = null;
+            float finalTargetScore = 0f;
+            float hysteresis = 1.1f; // 10% hysteresis
+            float bias = 2f; // bias for targets ahead vs behind
+            using (var target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
+                {
+                    if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && !target.Current.isLandedOrSurfaceSplashed)
+                    {
+                        float theta = Vector3.Angle(mf.vessel.srf_vel_direction, target.Current.transform.position - mf.vessel.transform.position);
+                        float distance = (mf.vessel.transform.position - target.Current.position).magnitude;
+                        float targetScore = (target.Current == mf.currentTarget ? hysteresis : 1f) * ((bias - 1f) * Mathf.Pow(Mathf.Cos(theta / 2f), 2f) + 1f) / distance;
+                        if (finalTarget == null || targetScore > finalTargetScore)
+                        {
+                            finalTarget = target.Current;
+                            finalTargetScore = targetScore;
+                        }
+                    }
+                }
             return finalTarget;
         }
 
@@ -891,53 +910,51 @@ namespace BDArmory.UI
         {
             TargetInfo finalTarget = null;
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && target.Current.isMissile && target.Current.isThreat && mf.CanSeeTarget(target.Current))
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    if (target.Current.MissileBaseModule)
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && target.Current.isMissile && target.Current.isThreat && mf.CanSeeTarget(target.Current))
                     {
-                        if (targetingMeOnly)
+                        if (target.Current.MissileBaseModule)
                         {
-                            if (Vector3.SqrMagnitude(target.Current.MissileBaseModule.TargetPosition - mf.vessel.CoM) > 60 * 60)
+                            if (targetingMeOnly)
                             {
-                                continue;
+                                if (Vector3.SqrMagnitude(target.Current.MissileBaseModule.TargetPosition - mf.vessel.CoM) > 60 * 60)
+                                {
+                                    continue;
+                                }
                             }
                         }
-                    }
-                    else
-                    {
-                        if (BDArmorySettings.DRAW_DEBUG_LABELS)
-                            Debug.LogWarning("checking target missile -  doesn't have missile module");
-                    }
+                        else
+                        {
+                            if (BDArmorySettings.DRAW_DEBUG_LABELS)
+                                Debug.LogWarning("checking target missile -  doesn't have missile module");
+                        }
 
-                    if (((finalTarget == null && target.Current.NumFriendliesEngaging(mf.Team) < 2) || (finalTarget != null && target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))))
-                    {
-                        finalTarget = target.Current;
+                        if (((finalTarget == null && target.Current.NumFriendliesEngaging(mf.Team) < 2) || (finalTarget != null && target.Current.NumFriendliesEngaging(mf.Team) < finalTarget.NumFriendliesEngaging(mf.Team))))
+                        {
+                            finalTarget = target.Current;
+                        }
                     }
                 }
-            }
-            target.Dispose();
             return finalTarget;
         }
 
         public static TargetInfo GetUnengagedMissileTarget(MissileFire mf)
         {
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && target.Current.isMissile && target.Current.isThreat)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    if (target.Current.NumFriendliesEngaging(mf.Team) == 0)
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && target.Current.isMissile && target.Current.isThreat)
                     {
-                        return target.Current;
+                        if (target.Current.NumFriendliesEngaging(mf.Team) == 0)
+                        {
+                            return target.Current;
+                        }
                     }
                 }
-            }
-            target.Dispose();
             return null;
         }
 
@@ -945,25 +962,24 @@ namespace BDArmory.UI
         {
             TargetInfo finalTarget = null;
 
-            List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator();
-            while (target.MoveNext())
-            {
-                if (target.Current == null) continue;
-                if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && target.Current.isMissile)
+            using (List<TargetInfo>.Enumerator target = TargetList(mf.Team).GetEnumerator())
+                while (target.MoveNext())
                 {
-                    bool isHostile = false;
-                    if (target.Current.isThreat)
+                    if (target.Current == null) continue;
+                    if (target.Current && target.Current.Vessel && mf.CanSeeTarget(target.Current) && target.Current.isMissile)
                     {
-                        isHostile = true;
-                    }
+                        bool isHostile = false;
+                        if (target.Current.isThreat)
+                        {
+                            isHostile = true;
+                        }
 
-                    if (isHostile && (finalTarget == null || target.Current.IsCloser(finalTarget, mf)))
-                    {
-                        finalTarget = target.Current;
+                        if (isHostile && (finalTarget == null || target.Current.IsCloser(finalTarget, mf)))
+                        {
+                            finalTarget = target.Current;
+                        }
                     }
                 }
-            }
-            target.Dispose();
             return finalTarget;
         }
 

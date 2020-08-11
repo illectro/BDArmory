@@ -935,19 +935,19 @@ namespace BDArmory.Modules
 
         void UnslaveTurrets()
         {
-            List<ModuleTargetingCamera>.Enumerator mtc = vessel.FindPartModulesImplementing<ModuleTargetingCamera>().GetEnumerator();
-            while (mtc.MoveNext())
-            {
-                if (mtc.Current == null) continue;
-                mtc.Current.slaveTurrets = false;
-            }
+            using (List<ModuleTargetingCamera>.Enumerator mtc = vessel.FindPartModulesImplementing<ModuleTargetingCamera>().GetEnumerator())
+                while (mtc.MoveNext())
+                {
+                    if (mtc.Current == null) continue;
+                    mtc.Current.slaveTurrets = false;
+                }
 
-            List<ModuleRadar>.Enumerator rad = vessel.FindPartModulesImplementing<ModuleRadar>().GetEnumerator();
-            while (rad.MoveNext())
-            {
-                if (rad.Current == null) continue;
-                rad.Current.slaveTurrets = false;
-            }
+            using (List<ModuleRadar>.Enumerator rad = vessel.FindPartModulesImplementing<ModuleRadar>().GetEnumerator())
+                while (rad.MoveNext())
+                {
+                    if (rad.Current == null) continue;
+                    rad.Current.slaveTurrets = false;
+                }
 
             if (weaponManager)
             {
@@ -1030,17 +1030,16 @@ namespace BDArmory.Modules
         {
             while (true)
             {
-                List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator();
-                while (v.MoveNext())
-                {
-                    if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;
-                    if (v.Current.id.ToString() != vesselID) continue;
-                    VesselRadarData vrd = v.Current.gameObject.GetComponent<VesselRadarData>();
-                    if (!vrd) continue;
-                    StartCoroutine(RelinkVRDWhenReadyRoutine(vrd));
-                    yield break;
-                }
-                v.Dispose();
+                using (List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator())
+                    while (v.MoveNext())
+                    {
+                        if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;
+                        if (v.Current.id.ToString() != vesselID) continue;
+                        VesselRadarData vrd = v.Current.gameObject.GetComponent<VesselRadarData>();
+                        if (!vrd) continue;
+                        StartCoroutine(RelinkVRDWhenReadyRoutine(vrd));
+                        yield break;
+                    }
 
                 yield return new WaitForSeconds(0.5f);
             }

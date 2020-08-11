@@ -343,17 +343,17 @@ namespace BDArmory.Core.Extension
         public static bool HasFuel(this Part part)
         {
             bool hasFuel = false;
-            IEnumerator<PartResource> resources = part.Resources.GetEnumerator();
-            while (resources.MoveNext())
-            {
-                if (resources.Current == null) continue;
-                switch (resources.Current.resourceName)
+            using (IEnumerator<PartResource> resources = part.Resources.GetEnumerator())
+                while (resources.MoveNext())
                 {
-                    case "LiquidFuel":
-                        if (resources.Current.amount > 1d) hasFuel = true;
-                        break;
+                    if (resources.Current == null) continue;
+                    switch (resources.Current.resourceName)
+                    {
+                        case "LiquidFuel":
+                            if (resources.Current.amount > 1d) hasFuel = true;
+                            break;
+                    }
                 }
-            }
             return hasFuel;
         }
 

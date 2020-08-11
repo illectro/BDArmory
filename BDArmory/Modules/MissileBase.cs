@@ -201,7 +201,7 @@ namespace BDArmory.Modules
             }
         }
 
-       
+
 
         public float Throttle
         {
@@ -256,28 +256,27 @@ namespace BDArmory.Modules
 
         private float _throttle = 1f;
         Vector3 previousPos;
-        
-		public string Sublabel;
-		public int missilecount = 0; //#191
 
-		public void GetMissileCount() // could stick this in GetSublabel, but that gets called every frame by BDArmorySetup?
-		{
-			missilecount = 0;
-			List<Part>.Enumerator craftPart = vessel.parts.GetEnumerator();
-			while (craftPart.MoveNext())
-			{
-				if (craftPart.Current == null) continue;
-                if (part == null) continue;
-                if (part.name == null) continue;
-                if (craftPart.Current.name != part.name) continue;
-				missilecount++;
-			}
-			craftPart.Dispose();
-		}
+        public string Sublabel;
+        public int missilecount = 0; //#191
+
+        public void GetMissileCount() // could stick this in GetSublabel, but that gets called every frame by BDArmorySetup?
+        {
+            missilecount = 0;
+            using (List<Part>.Enumerator craftPart = vessel.parts.GetEnumerator())
+                while (craftPart.MoveNext())
+                {
+                    if (craftPart.Current == null) continue;
+                    if (part == null) continue;
+                    if (part.name == null) continue;
+                    if (craftPart.Current.name != part.name) continue;
+                    missilecount++;
+                }
+        }
 
         public string GetSubLabel()
         {
-			return Sublabel = "Guidance: " + Enum.GetName(typeof(TargetingModes), TargetingMode) + "; Remaining: "+ missilecount; //
+            return Sublabel = "Guidance: " + Enum.GetName(typeof(TargetingModes), TargetingMode) + "; Remaining: " + missilecount; //
         }
 
         public Part GetPart()
@@ -347,7 +346,7 @@ namespace BDArmory.Modules
         [KSPField(isPersistant = true, guiName = "#LOC_BDArmory_GPSTarget")]//GPS Target
         public string gpsTargetName = "";
 
-       
+
 
         void PickGPSTarget()
         {
@@ -392,8 +391,8 @@ namespace BDArmory.Modules
                 TargetAcquired = false;
                 return;
             }
-           
-            
+
+
             if (heatTarget.exists && lockFailTimer < 0)
             {
                 lockFailTimer = 0;
@@ -401,7 +400,7 @@ namespace BDArmory.Modules
             if (lockFailTimer >= 0)
             {
                 Ray lookRay = new Ray(transform.position, heatTarget.position + (heatTarget.velocity * Time.fixedDeltaTime) - transform.position);
-                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel,  lookRay, lockedSensorFOV / 2, heatThreshold, allAspect, SourceVessel?.gameObject?.GetComponent<MissileFire>());
+                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, lockedSensorFOV / 2, heatThreshold, allAspect, SourceVessel?.gameObject?.GetComponent<MissileFire>());
 
                 if (heatTarget.exists)
                 {
@@ -849,9 +848,9 @@ namespace BDArmory.Modules
             return _guidance.GetDirection(this, targetPosition);
         }
 
-      
-        
-       
+
+
+
 
         protected void drawLabels()
         {

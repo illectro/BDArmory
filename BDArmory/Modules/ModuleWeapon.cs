@@ -95,7 +95,7 @@ namespace BDArmory.Modules
         private Vector3 targetVelocityPrevious; // for acceleration calculation
         private Vector3 targetAccelerationPrevious;
         private Vector3 relativeVelocity;
-        Vector3 finalAimTarget;
+        public Vector3 finalAimTarget;
         Vector3 lastFinalAimTarget;
         public Vessel visualTargetVessel;
         bool targetAcquired;
@@ -199,24 +199,25 @@ namespace BDArmory.Modules
 		
 		public string GetSubLabel() //I think BDArmorySetup only calls this for the first instance of a particular ShortName, so this probably won't result in a group of n guns having n GetSublabelCalls per frame
 		{
-			List<Part>.Enumerator craftPart = vessel.parts.GetEnumerator();
-			ammoLeft = "Ammo Left: " + ammoCount.ToString("0");
-			int lastAmmoID = this.AmmoID;
-			List<ModuleWeapon>.Enumerator weapon = vessel.FindPartModulesImplementing<ModuleWeapon>().GetEnumerator();
-			while (weapon.MoveNext())
-			{
-				if (weapon.Current == null) continue;
-				if (weapon.Current.GetShortName() != this.GetShortName()) continue;
-				if (weapon.Current.AmmoID != this.AmmoID && weapon.Current. AmmoID != lastAmmoID)
-				{
-					vessel.GetConnectedResourceTotals(weapon.Current.AmmoID, out double ammoCurrent, out double ammoMax);
-					ammoLeft += "; " + ammoCurrent.ToString("0");
-					lastAmmoID = weapon.Current.AmmoID;
-				}
-			}
-			weapon.Dispose();
-
-			return ammoLeft;
+            using (List<Part>.Enumerator craftPart = vessel.parts.GetEnumerator())
+            {
+                ammoLeft = "Ammo Left: " + ammoCount.ToString("0");
+                int lastAmmoID = this.AmmoID;
+                List<ModuleWeapon>.Enumerator weapon = vessel.FindPartModulesImplementing<ModuleWeapon>().GetEnumerator();
+                while (weapon.MoveNext())
+                {
+                    if (weapon.Current == null) continue;
+                    if (weapon.Current.GetShortName() != this.GetShortName()) continue;
+                    if (weapon.Current.AmmoID != this.AmmoID && weapon.Current.AmmoID != lastAmmoID)
+                    {
+                        vessel.GetConnectedResourceTotals(weapon.Current.AmmoID, out double ammoCurrent, out double ammoMax);
+                        ammoLeft += "; " + ammoCurrent.ToString("0");
+                        lastAmmoID = weapon.Current.AmmoID;
+                    }
+                }
+                weapon.Dispose();
+            }
+            return ammoLeft;
 		}
 
         public string GetMissileType()
@@ -1949,8 +1950,10 @@ namespace BDArmory.Modules
         {
             if (fireTransforms == null || fireTransforms[0] == null) return;
 
-            Transform refTransform = EditorLogic.RootPart.GetReferenceTransform();
+            Part rootPart = EditorLogic.RootPart;
+            if (rootPart == null) return;
 
+            Transform refTransform = rootPart.GetReferenceTransform();
             if (!refTransform) return;
 
             Vector3 fwdPos = fireTransforms[0].position + (5 * fireTransforms[0].forward);

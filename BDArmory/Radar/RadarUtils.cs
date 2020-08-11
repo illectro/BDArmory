@@ -3,6 +3,7 @@ using BDArmory.Control;
 using BDArmory.Core;
 using BDArmory.Core.Extension;
 using BDArmory.CounterMeasure;
+using BDArmory.FX;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using BDArmory.Shaders;
@@ -29,7 +30,7 @@ namespace BDArmory.Radar
         private static Texture2D drawTextureVentral;
         public static Texture2D GetTextureVentral { get { return drawTextureVentral; } }
 
-        // additional anti-exploit 45° offset renderings
+        // additional anti-exploit 45ï¿½ offset renderings
         private static Texture2D drawTextureFrontal45;
         public static Texture2D GetTextureFrontal45 { get { return drawTextureFrontal45; } }
         private static Texture2D drawTextureLateral45;
@@ -141,7 +142,7 @@ namespace BDArmory.Radar
                 ti.radarJammingDistance = ((vesseljammer.jammerStrength / ti.radarBaseSignature / 100) + 1.0f) * vesseljammer.jammerStrength;
 
                 //4) lockbreaking strength relative to jammer's lockbreak strength in relation to vessel rcs signature:
-                // lockbreak_factor = baseSig/modifiedSig x (1 – lopckBreakStrength/baseSig/100)
+                // lockbreak_factor = baseSig/modifiedSig x (1 ï¿½ lopckBreakStrength/baseSig/100)
                 ti.radarLockbreakFactor = (ti.radarBaseSignature / ti.radarModifiedSignature) * (1 - (vesseljammer.lockBreakStrength / ti.radarBaseSignature / 100));
             }
 
@@ -161,7 +162,7 @@ namespace BDArmory.Radar
             if (vci)
             {
                 // lockbreaking strength relative to jammer's lockbreak strength in relation to vessel rcs signature:
-                // lockbreak_factor = baseSig/modifiedSig x (1 – lopckBreakStrength/baseSig/100)
+                // lockbreak_factor = baseSig/modifiedSig x (1 ï¿½ lopckBreakStrength/baseSig/100)
                 chaffFactor = vci.GetChaffMultiplier();
             }
 
@@ -235,7 +236,7 @@ namespace BDArmory.Radar
             // pass3: Ventral
             RenderSinglePass(t, inEditorZoom, t.forward, vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral);
 
-            //additional 45° offset renderings:
+            //additional 45ï¿½ offset renderings:
             RenderSinglePass(t, inEditorZoom, (t.up + t.right), vesselbounds, radarDistance, radarFOV, rcsRenderingFrontal, drawTextureFrontal45);
             RenderSinglePass(t, inEditorZoom, (t.right + t.forward), vesselbounds, radarDistance, radarFOV, rcsRenderingLateral, drawTextureLateral45);
             RenderSinglePass(t, inEditorZoom, (t.forward - t.up), vesselbounds, radarDistance, radarFOV, rcsRenderingVentral, drawTextureVentral45);
@@ -824,6 +825,7 @@ namespace BDArmory.Radar
                 foundRadarMissile = false,
                 foundAGM = false,
                 firingAtMe = false,
+                missDistance = float.MaxValue,
                 missileThreatDistance = float.MaxValue,
                 threatVessel = null,
                 threatWeaponManager = null
@@ -907,22 +909,21 @@ namespace BDArmory.Radar
                             }
                             else
                             {
-                                List<ModuleWeapon>.Enumerator weapon = loadedvessels.Current.FindPartModulesImplementing<ModuleWeapon>().GetEnumerator();
-                                while (weapon.MoveNext())
-                                {
-                                    if (!weapon.Current.recentlyFiring) continue;
-                                    if (Vector3.Dot(weapon.Current.fireTransforms[0].forward, vesselDirection) > 0) continue;
-
-                                    if ((Vector3.Angle(weapon.Current.fireTransforms[0].forward, -predictedRelativeDirection) < 6500 / vesselDistance)
-                                        && (!results.firingAtMe || (weapon.Current.vessel.ReferenceTransform.position - position).sqrMagnitude < (results.threatPosition - position).sqrMagnitude))
+                                using (List<ModuleWeapon>.Enumerator weapon = loadedvessels.Current.FindPartModulesImplementing<ModuleWeapon>().GetEnumerator())
+                                    while (weapon.MoveNext())
                                     {
-                                        results.firingAtMe = true;
-                                        results.threatPosition = weapon.Current.vessel.transform.position;
-                                        results.threatVessel = weapon.Current.vessel;
-                                        results.threatWeaponManager = weapon.Current.weaponManager;
-                                        break;
+                                        // If we're being targeted, calculate a miss distance
+                                        if (weapon.Current.weaponManager.currentTarget != null && weapon.Current.weaponManager.currentTarget.Vessel == myWpnManager.vessel
+                                            && MissDistance(weapon.Current, myWpnManager.vessel) < results.missDistance)
+                                        {
+                                            results.firingAtMe = true;
+                                            results.threatPosition = weapon.Current.fireTransforms[0].position; // Position of weapon that's attacking.
+                                            results.threatVessel = weapon.Current.vessel;
+                                            results.threatWeaponManager = weapon.Current.weaponManager;
+                                            results.missDistance = MissDistance(weapon.Current, myWpnManager.vessel);
+                                        }
+
                                     }
-                                }
                             }
                         }
                     }
@@ -931,6 +932,24 @@ namespace BDArmory.Radar
 
             loadedvessels.Dispose();
             return results;
+        }
+
+        private static float MissDistance(ModuleWeapon threatWeapon, Vessel self) // Returns how far away bullets from enemy are from craft in meters
+        {
+
+            // If we have a firing solution, use that, otherwise use relative vessel positions
+            Transform fireTransform = threatWeapon.fireTransforms[0];
+            Vector3 aimDirection = fireTransform.forward;
+            float targetCosAngle = threatWeapon.FiringSolutionVector != null ? Vector3.Dot(aimDirection, (Vector3)threatWeapon.FiringSolutionVector) : Vector3.Dot(aimDirection, (self.vesselTransform.position - fireTransform.position).normalized);
+
+            // Find vertical component of aiming angle
+            float angleThreat = targetCosAngle < 0 ? float.MaxValue : Mathf.Sqrt(Mathf.Max(0f, 1f - targetCosAngle * targetCosAngle)); // Treat angles beyond 90 degrees as not a threat
+
+            // Calculate distance between incoming threat position and its aimpoint (or self position)
+            float distanceThreat = !threatWeapon.finalAimTarget.IsZero() ? Vector3.Magnitude(threatWeapon.finalAimTarget - fireTransform.position) : Vector3.Magnitude(self.vesselTransform.position - fireTransform.position);
+
+            return angleThreat * distanceThreat; // Calculate aiming arc length (how far away the bullets will travel)
+
         }
 
         /// <summary>
@@ -964,7 +983,7 @@ namespace BDArmory.Radar
         public static Vector2 WorldToRadarRadial(Vector3 worldPosition, Transform referenceTransform, Rect radarRect, float maxDistance, float maxAngle)
         {
             if (referenceTransform == null) return new Vector2();
-     
+
             float scale = maxDistance / (radarRect.height);
             Vector3 localPosition = referenceTransform.InverseTransformPoint(worldPosition);
             localPosition.y = 0;

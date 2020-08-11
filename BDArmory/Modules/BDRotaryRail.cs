@@ -219,12 +219,12 @@ namespace BDArmory.Modules
             UpdateRails(Mathf.RoundToInt(numberOfRails));
 
             if (!updateSym) return;
-            List<Part>.Enumerator p = part.symmetryCounterparts.GetEnumerator();
-            while (p.MoveNext())
-            {
-                if (p.Current == null) continue;
-                p.Current.FindModuleImplementing<BDRotaryRail>().SetRailCount(Mathf.RoundToInt(numberOfRails), railCountIndex);
-            }
+            using (List<Part>.Enumerator p = part.symmetryCounterparts.GetEnumerator())
+                while (p.MoveNext())
+                {
+                    if (p.Current == null) continue;
+                    p.Current.FindModuleImplementing<BDRotaryRail>().SetRailCount(Mathf.RoundToInt(numberOfRails), railCountIndex);
+                }
         }
 
         public void SetRailCount(int railCount, float railCountIndex)
@@ -241,12 +241,12 @@ namespace BDArmory.Modules
             UpdateRails(Mathf.RoundToInt(numberOfRails));
 
             if (!updateSym) return;
-            List<Part>.Enumerator p = part.symmetryCounterparts.GetEnumerator();
-            while (p.MoveNext())
-            {
-                if (p.Current == null) continue;
-                p.Current.FindModuleImplementing<BDRotaryRail>().SetRailCount(Mathf.RoundToInt(numberOfRails), railCountIndex);
-            }
+            using (List<Part>.Enumerator p = part.symmetryCounterparts.GetEnumerator())
+                while (p.MoveNext())
+                {
+                    if (p.Current == null) continue;
+                    p.Current.FindModuleImplementing<BDRotaryRail>().SetRailCount(Mathf.RoundToInt(numberOfRails), railCountIndex);
+                }
         }
 
         public void MoveEndStackNode(float offset)

@@ -655,15 +655,14 @@ namespace BDArmory.Radar
         {
             if (!v) return false;
 
-            List<RadarDisplayData>.Enumerator displayData = displayedTargets.GetEnumerator();
-            while (displayData.MoveNext())
-            {
-                if (v == displayData.Current.vessel)
+            using (List<RadarDisplayData>.Enumerator displayData = displayedTargets.GetEnumerator())
+                while (displayData.MoveNext())
                 {
-                    return TryLockTarget(displayData.Current);
+                    if (v == displayData.Current.vessel)
+                    {
+                        return TryLockTarget(displayData.Current);
+                    }
                 }
-            }
-            displayData.Dispose();
 
             RadarDisplayData newData = new RadarDisplayData
             {
@@ -1297,18 +1296,17 @@ namespace BDArmory.Radar
         {
             while (true)
             {
-                List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator();
-                while (v.MoveNext())
-                {
-                    if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;
-                    if (v.Current.id.ToString() != vesselID) continue;
-                    VesselRadarData vrd = v.Current.gameObject.GetComponent<VesselRadarData>();
-                    if (!vrd) continue;
-                    waitingForVessels.Remove(vesselID);
-                    StartCoroutine(LinkVRDWhenReady(vrd));
-                    yield break;
-                }
-                v.Dispose();
+                using (List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator())
+                    while (v.MoveNext())
+                    {
+                        if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;
+                        if (v.Current.id.ToString() != vesselID) continue;
+                        VesselRadarData vrd = v.Current.gameObject.GetComponent<VesselRadarData>();
+                        if (!vrd) continue;
+                        waitingForVessels.Remove(vesselID);
+                        StartCoroutine(LinkVRDWhenReady(vrd));
+                        yield break;
+                    }
 
                 yield return new WaitForSeconds(0.5f);
             }

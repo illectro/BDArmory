@@ -29,7 +29,11 @@ namespace BDArmory.Core
                 if (field.Current == null) continue;
                 if (!field.Current.IsDefined(typeof(BDAPersistantSettingsField), false)) continue;
 
-                settings.SetValue(field.Current.Name, field.Current.GetValue(null).ToString(), true);
+                var fieldValue = field.Current.GetValue(null);
+                if (fieldValue.GetType() == typeof(Vector2d))
+                    settings.SetValue(field.Current.Name, ((Vector2d)fieldValue).ToString("G"), true);
+                else
+                    settings.SetValue(field.Current.Name, field.Current.GetValue(null).ToString(), true);
             }
             field.Dispose();
             fileNode.Save(BDArmorySettings.settingsConfigURL);
@@ -100,6 +104,14 @@ namespace BDArmory.Core
                     height = hVal
                 };
                 return rectVal;
+            }
+            else if (type == typeof(Vector2d))
+            {
+                char[] charsToTrim = { '(', ')' };
+                string[] strings = value.Trim(charsToTrim).Split(',');
+                double x = double.Parse(strings[0]);
+                double y = double.Parse(strings[1]);
+                return new Vector2d(x, y);
             }
             Debug.LogError("[BDArmory]: BDAPersistantSettingsField to parse settings field of type " + type +
                            " and value " + value);

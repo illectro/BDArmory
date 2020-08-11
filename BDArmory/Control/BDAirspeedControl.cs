@@ -112,30 +112,29 @@ namespace BDArmory.Control
             float finalThrust = 0;
             multiModeEngines.Clear();
 
-            List<ModuleEngines>.Enumerator engines = vessel.FindPartModulesImplementing<ModuleEngines>().GetEnumerator();
-            while (engines.MoveNext())
-            {
-                if (engines.Current == null) continue;
-                if (!engines.Current.EngineIgnited) continue;
-
-                MultiModeEngine mme = engines.Current.part.FindModuleImplementing<MultiModeEngine>();
-                if (IsAfterBurnerEngine(mme))
+            using (List<ModuleEngines>.Enumerator engines = vessel.FindPartModulesImplementing<ModuleEngines>().GetEnumerator())
+                while (engines.MoveNext())
                 {
-                    multiModeEngines.Add(mme);
-                    mme.autoSwitch = false;
-                }
+                    if (engines.Current == null) continue;
+                    if (!engines.Current.EngineIgnited) continue;
 
-                if (mme && mme.mode != engines.Current.engineID) continue;
-                float engineThrust = engines.Current.maxThrust;
-                if (engines.Current.atmChangeFlow)
-                {
-                    engineThrust *= engines.Current.flowMultiplier;
-                }
-                maxThrust += engineThrust * (engines.Current.thrustPercentage / 100f);
+                    MultiModeEngine mme = engines.Current.part.FindModuleImplementing<MultiModeEngine>();
+                    if (IsAfterBurnerEngine(mme))
+                    {
+                        multiModeEngines.Add(mme);
+                        mme.autoSwitch = false;
+                    }
 
-                finalThrust += engines.Current.finalThrust;
-            }
-            engines.Dispose();
+                    if (mme && mme.mode != engines.Current.engineID) continue;
+                    float engineThrust = engines.Current.maxThrust;
+                    if (engines.Current.atmChangeFlow)
+                    {
+                        engineThrust *= engines.Current.flowMultiplier;
+                    }
+                    maxThrust += engineThrust * (engines.Current.thrustPercentage / 100f);
+
+                    finalThrust += engines.Current.finalThrust;
+                }
 
             debugThrust = maxThrust;
 
@@ -153,26 +152,25 @@ namespace BDArmory.Control
             possibleAccel += accel;
 
             //use multimode afterburner for extra accel if lacking
-            List<MultiModeEngine>.Enumerator mmes = multiModeEngines.GetEnumerator();
-            while (mmes.MoveNext())
-            {
-                if (mmes.Current == null) continue;
-                if (allowAfterburner && accel < requestAccel * 0.2f)
+            using (List<MultiModeEngine>.Enumerator mmes = multiModeEngines.GetEnumerator())
+                while (mmes.MoveNext())
                 {
-                    if (mmes.Current.runningPrimary)
+                    if (mmes.Current == null) continue;
+                    if (allowAfterburner && accel < requestAccel * 0.2f)
                     {
-                        mmes.Current.Events["ModeEvent"].Invoke();
+                        if (mmes.Current.runningPrimary)
+                        {
+                            mmes.Current.Events["ModeEvent"].Invoke();
+                        }
+                    }
+                    else if (!allowAfterburner || accel > requestAccel * 1.5f)
+                    {
+                        if (!mmes.Current.runningPrimary)
+                        {
+                            mmes.Current.Events["ModeEvent"].Invoke();
+                        }
                     }
                 }
-                else if (!allowAfterburner || accel > requestAccel * 1.5f)
-                {
-                    if (!mmes.Current.runningPrimary)
-                    {
-                        mmes.Current.Events["ModeEvent"].Invoke();
-                    }
-                }
-            }
-            mmes.Dispose();
             return accel;
         }
 

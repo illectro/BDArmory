@@ -1,4 +1,6 @@
-﻿namespace BDArmory.Modules
+﻿using UnityEngine;
+
+namespace BDArmory.Modules
 {
     public class ModuleEMP : PartModule
     {
@@ -41,7 +43,8 @@
 
                         if (count == 0)
                         {
-                            v.rootPart.AddModule("ModuleDrainEC");
+                            if (v.rootPart != null)
+                                v.rootPart.AddModule("ModuleDrainEC");
                         }
                     }
                 }

@@ -95,7 +95,7 @@ namespace BDArmory.Modules
         private bool _minSpeedAchieved = false;
         private double lastRollAngle;
         private double angularVelocity;
-            
+
 
         #endregion KSP FIELDS
 
@@ -316,17 +316,15 @@ namespace BDArmory.Modules
             if (TimeIndex < 1) return false;
 
             // Replaced Linq expression...
-            List<Part>.Enumerator parts = vessel.parts.GetEnumerator();
-
-            while (parts.MoveNext())
-            {
-                if (parts.Current == null || !IsEngine(parts.Current)) continue;
-                if (EngineIgnitedAndHasFuel(parts.Current))
+            using (List<Part>.Enumerator parts = vessel.parts.GetEnumerator())
+                while (parts.MoveNext())
                 {
-                    return false;
+                    if (parts.Current == null || !IsEngine(parts.Current)) continue;
+                    if (EngineIgnitedAndHasFuel(parts.Current))
+                    {
+                        return false;
+                    }
                 }
-            }
-            parts.Dispose();
 
             //If the next stage is greater than the number defined of stages the missile is done
             if (_nextStage > StagesNumber)
@@ -340,30 +338,27 @@ namespace BDArmory.Modules
 
         public bool IsEngine(Part p)
         {
-            List<PartModule>.Enumerator m = p.Modules.GetEnumerator();
-            while (m.MoveNext())
-            {
-                if (m.Current == null) continue;
-                if (m.Current is ModuleEngines) return true;
-            }
-            m.Dispose();
+            using (List<PartModule>.Enumerator m = p.Modules.GetEnumerator())
+                while (m.MoveNext())
+                {
+                    if (m.Current == null) continue;
+                    if (m.Current is ModuleEngines) return true;
+                }
             return false;
         }
 
         public static bool EngineIgnitedAndHasFuel(Part p)
         {
-            List<PartModule>.Enumerator m = p.Modules.GetEnumerator();
-
-            while (m.MoveNext())
-            {
-                PartModule pm = m.Current;
-                ModuleEngines eng = pm as ModuleEngines;
-                if (eng != null)
+            using (List<PartModule>.Enumerator m = p.Modules.GetEnumerator())
+                while (m.MoveNext())
                 {
-                    return (eng.EngineIgnited && (!eng.getFlameoutState || eng.flameoutBar == 0 || eng.status == "Nominal"));
+                    PartModule pm = m.Current;
+                    ModuleEngines eng = pm as ModuleEngines;
+                    if (eng != null)
+                    {
+                        return (eng.EngineIgnited && (!eng.getFlameoutState || eng.flameoutBar == 0 || eng.status == "Nominal"));
+                    }
                 }
-            }
-            m.Dispose();
             return false;
         }
 
@@ -614,7 +609,7 @@ namespace BDArmory.Modules
                 this._guidance = new CruiseGuidance(this);
             }
 
-            return this._guidance.GetDirection(this,TargetPosition);
+            return this._guidance.GetDirection(this, TargetPosition);
         }
 
         private void CheckMiss(Vector3 targetPosition)
@@ -626,7 +621,7 @@ namespace BDArmory.Modules
             if ((vessel.CoM - targetPosition).sqrMagnitude >
                 (vessel.CoM + (vessel.Velocity() * Time.fixedDeltaTime) - (targetPosition + (TargetVelocity * Time.fixedDeltaTime))).sqrMagnitude) return;
 
-            if (MissileState != MissileStates.PostThrust ) return;
+            if (MissileState != MissileStates.PostThrust) return;
 
             Debug.Log("[BDArmory]: Missile CheckMiss showed miss");
             HasMissed = true;
@@ -639,7 +634,7 @@ namespace BDArmory.Modules
         private void CheckMiss()
         {
             if (HasMissed) return;
-        
+
 
             if (MissileState == MissileStates.PostThrust && (vessel.LandedOrSplashed || vessel.Velocity().magnitude < 10f))
             {

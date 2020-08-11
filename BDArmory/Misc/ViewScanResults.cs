@@ -10,6 +10,7 @@ namespace BDArmory.Misc
         public bool foundRadarMissile;
         public bool foundAGM;
         public bool firingAtMe;
+        public float missDistance;
         public float missileThreatDistance;
         public Vector3 threatPosition;
         public Vessel threatVessel;

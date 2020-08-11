@@ -130,25 +130,23 @@ namespace BDArmory.CounterMeasure
         void FireParticleEffects()
         {
             if (!effectsTransform) return;
-            IEnumerator<KSPParticleEmitter> pe = effectsTransform.gameObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator();
-            while (pe.MoveNext())
-            {
-                if (pe.Current == null) continue;
-                EffectBehaviour.AddParticleEmitter(pe.Current);
-                pe.Current.Emit();
-            }
-            pe.Dispose();
+            using (IEnumerator<KSPParticleEmitter> pe = effectsTransform.gameObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator())
+                while (pe.MoveNext())
+                {
+                    if (pe.Current == null) continue;
+                    EffectBehaviour.AddParticleEmitter(pe.Current);
+                    pe.Current.Emit();
+                }
         }
 
         PartResource GetCMResource()
         {
-            IEnumerator<PartResource> res = part.Resources.GetEnumerator();
-            while (res.MoveNext())
-            {
-                if (res.Current == null) continue;
-                if (res.Current.resourceName == resourceName) return res.Current;
-            }
-            res.Dispose();
+            using (IEnumerator<PartResource> res = part.Resources.GetEnumerator())
+                while (res.MoveNext())
+                {
+                    if (res.Current == null) continue;
+                    if (res.Current.resourceName == resourceName) return res.Current;
+                }
             return null;
         }
 
@@ -284,15 +282,14 @@ namespace BDArmory.CounterMeasure
             smokeCMObject.SetActive(true);
             smokeCMObject.transform.position = ejectTransform.position + (10 * ejectTransform.forward);
             float longestLife = 0;
-            IEnumerator<KSPParticleEmitter> emitter = smokeCMObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator();
-            while (emitter.MoveNext())
-            {
-                if (emitter.Current == null) continue;
-                EffectBehaviour.AddParticleEmitter(emitter.Current);
-                emitter.Current.Emit();
-                if (emitter.Current.maxEnergy > longestLife) longestLife = emitter.Current.maxEnergy;
-            }
-            emitter.Dispose();
+            using (IEnumerator<KSPParticleEmitter> emitter = smokeCMObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator())
+                while (emitter.MoveNext())
+                {
+                    if (emitter.Current == null) continue;
+                    EffectBehaviour.AddParticleEmitter(emitter.Current);
+                    emitter.Current.Emit();
+                    if (emitter.Current.maxEnergy > longestLife) longestLife = emitter.Current.maxEnergy;
+                }
 
             audioSource.PlayOneShot(smokePoofSound);
             yield return new WaitForSeconds(longestLife);

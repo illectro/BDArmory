@@ -226,6 +226,7 @@
     <Compile Include="Control\BDACompetitionMode.cs" />
     <Compile Include="UI\IBDWMModule.cs" />
     <Compile Include="UI\KrakensbaneDebug.cs" />
+    <Compile Include="UI\VesselSpawner.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BDArmory.Core\BDArmory.Core.csproj">
@@ -317,6 +318,8 @@
     <None Include="Distribution\GameData\BDArmory\Parts\aim-120\amraam.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aim-120\amraam_emp.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aim-120\model.mu" />
+    <None Include="Distribution\GameData\BDArmory\Parts\AIM4Falcon\AIM4FalconGAR2.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Parts\AIM4Falcon\AIM4FalconMK1.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\part.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\aiPilot\surface_ai.cfg" />
@@ -533,6 +536,8 @@
     <Content Include="Distribution\GameData\BDArmory\Parts\adjustableRail\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\AGM86-17\AGM86-17.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aim-120\texture.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\AIM4Falcon\texture.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\AIM4Falcon\texture2.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\SAI1.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\aiPilot\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\AmmoBox\texture.png" />
@@ -656,43 +661,72 @@
     <Content Include="Distribution\GameData\BDArmory\Textures\whiteSquare.png" />
   </ItemGroup>
   <PropertyGroup>
-    <PostBuildEvent>@echo $(Targetname)
-SET ModName=BDArmory
+    <PostBuildEvent Condition="'$(OS)' == 'Windows_NT' ">
+      @echo $(Targetname)
+      SET ModName=BDArmory
 
-rem this step strips the solutionName from the git path to give us the root folder for locating the LocalDev Folder
-rem the echo commands are commented.  used for testing of the desired path.
-set GIT_PATH=$(SolutionDir)
-rem @echo %25GIT_PATH%25
-set GIT_PATH=%25GIT_PATH:BDArmory\=%25
-rem @echo %25GIT_PATH%25
+      rem this step strips the solutionName from the git path to give us the root folder for locating the LocalDev Folder
+      rem the echo commands are commented.  used for testing of the desired path.
+      set GIT_PATH=$(SolutionDir)
+      rem @echo %25GIT_PATH%25
+      set GIT_PATH=%25GIT_PATH:BDArmory\=%25
+      rem @echo %25GIT_PATH%25
 
-@echo ...
-@echo set lpath vars from "%25GIT_PATH%25_LocalDev\LocalDev" storage...
-set /p KSP_DIR=&lt;"%25GIT_PATH%25_LocalDev\ksp_dir.txt"
-set /p PDB2MDB_EXE=&lt;"%25GIT_PATH%25_LocalDev\pdb2mdb_exe.txt"
-set /p ZA_DIR=&lt;"%25GIT_PATH%25_LocalDev\7za_dir.txt"
-set /p DIST_DIR=&lt;"%25GIT_PATH%25_LocalDev\dist_dir.txt"
+      @echo ...
+      @echo set lpath vars from "%25GIT_PATH%25_LocalDev\LocalDev" storage...
+      set /p KSP_DIR=&lt;"%25GIT_PATH%25_LocalDev\ksp_dir.txt"
+      set /p PDB2MDB_EXE=&lt;"%25GIT_PATH%25_LocalDev\pdb2mdb_exe.txt"
+      set /p ZA_DIR=&lt;"%25GIT_PATH%25_LocalDev\7za_dir.txt"
+      set /p DIST_DIR=&lt;"%25GIT_PATH%25_LocalDev\dist_dir.txt"
 
-@echo Copying assemblies to Distribution $(Targetname) files...
-if not exist "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\" mkdir "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\"
-xcopy /E /Y "$(TargetDir)"BDArmory*.dll "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\"
+      @echo Copying assemblies to Distribution $(Targetname) files...
+      if not exist "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\" mkdir "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\"
+      xcopy /E /Y "$(TargetDir)"BDArmory*.dll "$(ProjectDir)Distribution\GameData\%25ModName%25\Plugins\"
 
-if $(ConfigurationName) == Debug (
-@echo building debug files and symbols...
-copy /Y "$(TargetDir)"BDArmory*.pdb "%25KSP_DIR%25\GameData\%25ModName%25\Plugins\"
-)
+      if $(ConfigurationName) == Debug (
+      @echo building debug files and symbols...
+      copy /Y "$(TargetDir)"BDArmory*.pdb "%25KSP_DIR%25\GameData\%25ModName%25\Plugins\"
+      )
 
-@echo deleting previous build ...
-if exist "%25DIST_DIR%25\%25ModName%25.*.zip" del "%25DIST_DIR%25\%25ModName%25.*.zip"
-@echo packaging new build...
-call "%25ZA_DIR%25\7za.exe" a -tzip -r  "%25DIST_DIR%25\%25ModName%25.@(VersionNumber)_%25DATE:~4,2%25%25DATE:~7,2%25%25DATE:~10,4%25%25time:~0,2%25%25time:~3,2%25.zip" "$(ProjectDir)Distribution\*.*"
+      @echo deleting previous build ...
+      if exist "%25DIST_DIR%25\%25ModName%25.*.zip" del "%25DIST_DIR%25\%25ModName%25.*.zip"
+      @echo packaging new build...
+      call "%25ZA_DIR%25\7za.exe" a -tzip -r  "%25DIST_DIR%25\%25ModName%25.@(VersionNumber)_%25DATE:~4,2%25%25DATE:~7,2%25%25DATE:~10,4%25%25time:~0,2%25%25time:~3,2%25.zip" "$(ProjectDir)Distribution\*.*"
 
-@echo Deploy $(ProjectDir) Distribution files to test env:  %25KSP_DIR%25\GameData...
-@echo copying:"$(ProjectDir)Distribution\GameData" to "%25KSP_DIR%25\GameData" 
-xcopy /E /Y "$(ProjectDir)Distribution\GameData" "%25KSP_DIR%25\GameData"
+      @echo Deploy $(ProjectDir) Distribution files to test env:  %25KSP_DIR%25\GameData...
+      @echo copying:"$(ProjectDir)Distribution\GameData" to "%25KSP_DIR%25\GameData" 
+      xcopy /E /Y "$(ProjectDir)Distribution\GameData" "%25KSP_DIR%25\GameData"
 
 
-@echo Build/deploy complete!</PostBuildEvent>
+      @echo Build/deploy complete!
+    </PostBuildEvent>
+    <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">
+      echo $(Targetname)
+      export ModName=BDArmory
+      echo Copying assemblies to Distribution $(Targetname) files...
+      mkdir -p "$(ProjectDir)/Distribution/GameData/${ModName}/Plugins/"
+      cp -a "$(TargetDir)"BDArmory*.dll "$(ProjectDir)Distribution/GameData/${ModName}/Plugins/"
+      if [ "$(ConfigurationName)" = "Debug" ]
+      then
+        echo building debug files and symbols...
+        cp -a "$(TargetDir)"BDArmory*.pdb "$(ProjectDir)Distribution/GameData/${ModName}/Plugins/"
+      fi
+
+      if [ -e "$(ProjectDir)Distribution/${ModName}".*.zip ]
+      then
+        echo deleting previous build ...
+        rm "$(ProjectDir)Distribution/${ModName}".*.zip
+      fi
+      echo packaging new build...
+      7za  a -tzip -r  "$(ProjectDir)Distribution/${ModName}.@(VersionNumber)_`date -u -Iseconds`.zip" "$(ProjectDir)Distribution/*.*"
+
+      export KSP_DIR="`cat $(ProjectDir)../../_LocalDev/ksp_dir.txt`"
+      echo Deploy $(ProjectDir) Distribution files to test env:  "${KSP_DIR}/GameData"...
+      echo copying:"$(ProjectDir)Distribution/GameData" to "${KSP_DIR}/GameData" 
+      cp -a "$(ProjectDir)Distribution/GameData/${ModName}" "${KSP_DIR}/GameData"
+
+      echo Build/deploy complete!
+    </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

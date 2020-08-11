@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using BDArmory.Control;
 using BDArmory.Core;
 using BDArmory.Core.Extension;
 using BDArmory.Core.Utils;
 using BDArmory.Misc;
+using BDArmory.Modules;
 using UnityEngine;
 
 namespace BDArmory.FX
@@ -99,8 +101,9 @@ namespace BDArmory.FX
         private List<BlastHitEvent> ProcessingBlastSphere()
         {
             List<BlastHitEvent> result = new List<BlastHitEvent>();
-            List<Part> parstAdded = new List<Part>();
-            List<DestructibleBuilding> bulidingAdded = new List<DestructibleBuilding>();
+            List<Part> partsAdded = new List<Part>();
+            List<DestructibleBuilding> buildingAdded = new List<DestructibleBuilding>();
+            Dictionary<string, int> vesselsHitByMissiles = new Dictionary<string, int>();
 
             using (var hitCollidersEnu = Physics.OverlapSphere(Position, Range, 9076737).AsEnumerable().GetEnumerator())
             {
@@ -110,20 +113,53 @@ namespace BDArmory.FX
 
                     Part partHit = hitCollidersEnu.Current.GetComponentInParent<Part>();
 
-                    if (partHit != null && partHit.mass > 0 && !parstAdded.Contains(partHit))
+                    if (partHit != null && partHit.mass > 0 && !partsAdded.Contains(partHit))
                     {
-                        ProcessPartEvent(partHit, result, parstAdded);
+                        var damaged = ProcessPartEvent(partHit, result, partsAdded);
+                        // If the explosion derives from a missile explosion, count the parts damaged for missile hit scores.
+                        if (damaged && IsMissile && BDACompetitionMode.Instance)
+                        {
+                            var sourceVesselName = ExplosivePart.FindModuleImplementing<MissileLauncher>()?.SourceVessel?.GetName();
+                            if (sourceVesselName != null && BDACompetitionMode.Instance.Scores.ContainsKey(sourceVesselName)) // Check that the source vessel is in the competition.
+                            {
+                                var damagedVesselName = partHit.vessel?.GetName();
+                                if (damagedVesselName != null && damagedVesselName != sourceVesselName && BDACompetitionMode.Instance.Scores.ContainsKey(damagedVesselName)) // Check that the damaged vessel is in the competition and isn't the source vessel.
+                                {
+                                    if (BDACompetitionMode.Instance.Scores[damagedVesselName].missilePartDamageCounts.ContainsKey(sourceVesselName))
+                                        ++BDACompetitionMode.Instance.Scores[damagedVesselName].missilePartDamageCounts[sourceVesselName];
+                                    else
+                                        BDACompetitionMode.Instance.Scores[damagedVesselName].missilePartDamageCounts[sourceVesselName] = 1;
+                                    if (!BDACompetitionMode.Instance.Scores[damagedVesselName].everyoneWhoHitMeWithMissiles.Contains(sourceVesselName))
+                                        BDACompetitionMode.Instance.Scores[damagedVesselName].everyoneWhoHitMeWithMissiles.Add(sourceVesselName);
+                                    ++BDACompetitionMode.Instance.Scores[sourceVesselName].totalDamagedPartsDueToMissiles;
+                                    BDACompetitionMode.Instance.Scores[damagedVesselName].lastMissileHitTime = Planetarium.GetUniversalTime();
+                                    BDACompetitionMode.Instance.Scores[damagedVesselName].lastPersonWhoHitMeWithAMissile = sourceVesselName;
+                                    if (vesselsHitByMissiles.ContainsKey(damagedVesselName))
+                                        ++vesselsHitByMissiles[damagedVesselName];
+                                    else
+                                        vesselsHitByMissiles[damagedVesselName] = 1;
+                                }
+                            }
+                        }
                     }
                     else
                     {
                         DestructibleBuilding building = hitCollidersEnu.Current.GetComponentInParent<DestructibleBuilding>();
 
-                        if (building != null && !bulidingAdded.Contains(building))
+                        if (building != null && !buildingAdded.Contains(building))
                         {
-                            ProcessBuildingEvent(building, result, bulidingAdded);
+                            ProcessBuildingEvent(building, result, buildingAdded);
                         }
                     }
                 }
+            }
+            if (vesselsHitByMissiles.Count > 0)
+            {
+                BDACompetitionMode.Instance.competitionStatus = "";
+                foreach (var vesselName in vesselsHitByMissiles.Keys)
+                    BDACompetitionMode.Instance.competitionStatus += (BDACompetitionMode.Instance.competitionStatus == "" ? "" : " and ") + vesselName + " had " + vesselsHitByMissiles[vesselName];
+                BDACompetitionMode.Instance.competitionStatus += " parts damaged due to missile strike.";
+                // Note: damage hasn't actually been applied to the parts yet, just assigned as events, so we can't know if they survived.
             }
             return result;
         }
@@ -148,7 +184,7 @@ namespace BDArmory.FX
             }
         }
 
-        private void ProcessPartEvent(Part part, List<BlastHitEvent> eventList, List<Part> partsAdded)
+        private bool ProcessPartEvent(Part part, List<BlastHitEvent> eventList, List<Part> partsAdded)
         {
             RaycastHit hit;
             float distance = 0;
@@ -165,8 +201,10 @@ namespace BDArmory.FX
                         HitPoint = hit.point,
                     });
                     partsAdded.Add(part);
+                    return true;
                 }
             }
+            return false;
         }
 
         private bool IsAngleAllowed(Vector3 direction, RaycastHit hit)
@@ -229,8 +267,8 @@ namespace BDArmory.FX
 
         public void Update()
         {
-            LightFx.intensity -= 12 * Time.deltaTime;
-            if (TimeIndex > 0.2f)
+            if (LightFx != null) LightFx.intensity -= 12 * Time.deltaTime;
+            if (TimeIndex > 0.2f && PEmitters != null)
             {
                 IEnumerator<KSPParticleEmitter> pe = PEmitters.AsEnumerable().GetEnumerator();
                 while (pe.MoveNext())

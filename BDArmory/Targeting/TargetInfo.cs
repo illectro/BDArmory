@@ -148,15 +148,23 @@ namespace BDArmory.Targeting
             }
 
             //destroy this if a target info is already attached to the vessel
-            IEnumerator otherInfo = vessel.gameObject.GetComponents<TargetInfo>().GetEnumerator();
-            while (otherInfo.MoveNext())
+            foreach(var otherInfo in vessel.gameObject.GetComponents<TargetInfo>())
             {
-                if ((object)otherInfo.Current != this)
+                if (otherInfo != this)
                 {
                     Destroy(this);
                     return;
                 }
             }
+            // IEnumerator otherInfo = vessel.gameObject.GetComponents<TargetInfo>().GetEnumerator();
+            // while (otherInfo.MoveNext())
+            // {
+            //     if ((object)otherInfo.Current != this)
+            //     {
+            //         Destroy(this);
+            //         return;
+            //     }
+            // }
 
             Team = null;
             bool foundMf = false;

@@ -273,16 +273,15 @@ namespace BDArmory.Modules
 
         ModuleTargetingCamera FindNextActiveCamera()
         {
-            List<ModuleTargetingCamera>.Enumerator mtc = vessel.FindPartModulesImplementing<ModuleTargetingCamera>().GetEnumerator();
-            while (mtc.MoveNext())
-            {
-                if (mtc.Current && mtc.Current.cameraEnabled)
+            using (List<ModuleTargetingCamera>.Enumerator mtc = vessel.FindPartModulesImplementing<ModuleTargetingCamera>().GetEnumerator())
+                while (mtc.MoveNext())
                 {
-                    mtc.Current.EnableCamera();
-                    return mtc.Current;
+                    if (mtc.Current && mtc.Current.cameraEnabled)
+                    {
+                        mtc.Current.EnableCamera();
+                        return mtc.Current;
+                    }
                 }
-            }
-            mtc.Dispose();
 
             return null;
         }
