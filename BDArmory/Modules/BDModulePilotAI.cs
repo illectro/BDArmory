@@ -1331,9 +1331,10 @@ namespace BDArmory.Modules
                     desiredMinAltitude = defaultAltitude;
                 }
 
-                if (targetVessel != null && !targetVessel.LandedOrSplashed) // We have a flying target, only extend a short distance.     //this is just asking for trouble at 800m
+                if (targetVessel != null && !targetVessel.LandedOrSplashed) // We have a flying target, only extend a short distance and don't climb.     //this is just asking for trouble at 800m
                 {
                     extendDistance = 300 * extendMult;
+                    desiredMinAltitude = minAltitude;
                 }
 
                 Vector3 srfVector = Vector3.ProjectOnPlane(vessel.transform.position - tPosition, upDirection);

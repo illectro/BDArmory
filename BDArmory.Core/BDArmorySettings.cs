@@ -63,12 +63,22 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static int MAX_FIRES_PER_VESSEL = 10;                   //controls fx for penetration only for landed or splashed
         [BDAPersistantSettingsField] public static float FIRELIFETIME_IN_SECONDS = 90f;             //controls fx for penetration only for landed or splashed
         [BDAPersistantSettingsField] public static bool PERFORMANCE_LOGGING = false;
+        [BDAPersistantSettingsField] public static bool TAG_MODE = false;
+        [BDAPersistantSettingsField] public static bool PAINTBALL_MODE = false;
         [BDAPersistantSettingsField] public static bool AUTOCATEGORIZE_PARTS = true;
         [BDAPersistantSettingsField] public static bool SHOW_CATEGORIES = true;
         [BDAPersistantSettingsField] public static int TERRAIN_ALERT_FREQUENCY = 1;               // Controls how often terrain avoidance checks are made (gets scaled by 1+(radarAltitude/500)^2)
-        [BDAPersistantSettingsField] public static bool DEBUG_RAMMING_LOGGING = false;                // Controls whether ramming logging debug information is printed to the Debug.Log
+        [BDAPersistantSettingsField] public static int CAMERA_SWITCH_FREQUENCY = 3;               // Controls the minimum time between automated camera switches
+        [BDAPersistantSettingsField] public static float OUT_OF_AMMO_KILL_TIME = -1f;            // Out of ammo kill timer for continuous spawn mode.
+        [BDAPersistantSettingsField] public static bool DEBUG_RAMMING_LOGGING = false;            // Controls whether ramming logging debug information is printed to the Debug.Log
+        [BDAPersistantSettingsField] public static bool REMOTE_LOGGING_ENABLED = false;           // Enable/disable remote orchestration
+        [BDAPersistantSettingsField] public static string COMPETITION_HASH = "";                  // Competition hash used for orchestration
+        [BDAPersistantSettingsField] public static int COMPETITION_DURATION = 5;                  // Competition duration in minutes
         [BDAPersistantSettingsField] public static float VESSEL_SWITCHER_WINDOW_WIDTH = 500f;
+        [BDAPersistantSettingsField] public static bool VESSEL_SWITCHER_WINDOW_SORTING = false;
         [BDAPersistantSettingsField] public static Vector2d VESSEL_SPAWN_GEOCOORDS = new Vector2d(0.05096, -74.8016);
+        [BDAPersistantSettingsField] public static float VESSEL_SPAWN_ALTITUDE = 2f;
         [BDAPersistantSettingsField] public static bool DISABLE_KILL_TIMER = false;                 //disables the kill timers.
+        [BDAPersistantSettingsField] public static float REMOTE_ORCHESTRATION_WINDOW_WIDTH = 200f;
     }
 }

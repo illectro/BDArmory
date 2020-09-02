@@ -15,7 +15,7 @@ namespace BDArmory.Modules
     {
         public MissileFire weaponManager;
 
-        List<IBDAIControl> friendlies;
+        public List<IBDAIControl> friendlies;
 
         List<IBDAIControl> wingmen;
         [KSPField(isPersistant = true)] public string savedWingmen = string.Empty;

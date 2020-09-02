@@ -1742,7 +1742,7 @@ namespace BDArmory.Modules
             {
                 Vector3 position = transform.position;//+rigidbody.velocity*Time.fixedDeltaTime;
 
-                ExplosionFx.CreateExplosion(position, blastPower, explModelPath, explSoundPath, true, 0, part);
+                ExplosionFx.CreateExplosion(position, blastPower, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, part);
             }
 
             List<BDAGaplessParticleEmitter>.Enumerator e = gaplessEmitters.GetEnumerator();

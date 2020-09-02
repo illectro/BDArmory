@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
+using BDArmory.Control;
 using BDArmory.Core.Extension;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using BDArmory.UI;
+using Contracts.Parameters;
 using UnityEngine;
 
 namespace BDArmory.Targeting
@@ -148,7 +150,7 @@ namespace BDArmory.Targeting
             }
 
             //destroy this if a target info is already attached to the vessel
-            foreach(var otherInfo in vessel.gameObject.GetComponents<TargetInfo>())
+            foreach (var otherInfo in vessel.gameObject.GetComponents<TargetInfo>())
             {
                 if (otherInfo != this)
                 {
@@ -250,6 +252,109 @@ namespace BDArmory.Targeting
             }
             return 0;
         }
+
+        #region Target priority
+        // Begin methods used for prioritizing targets
+        public float TargetPriRange(MissileFire myMf) // 1- Target range normalized with max weapon range
+        {
+            float thisDist = (position - myMf.transform.position).magnitude;
+            float maxWepRange = 0;
+            using (List<ModuleWeapon>.Enumerator weapon = myMf.vessel.FindPartModulesImplementing<ModuleWeapon>().GetEnumerator())
+                while (weapon.MoveNext())
+                {
+                    if (weapon.Current == null) continue;
+                    maxWepRange = (weapon.Current.GetEngagementRangeMax() > maxWepRange) ? weapon.Current.GetEngagementRangeMax() : maxWepRange;
+                }
+            float targetPriRange = 1 - Mathf.Clamp(thisDist / maxWepRange, 0, 1);
+            return targetPriRange;
+        }
+
+        public float TargetPriATA(MissileFire myMf) // Square cosine of antenna train angle
+        {
+            float ataDot = Vector3.Dot(myMf.vessel.srf_vel_direction, (position - myMf.vessel.vesselTransform.position).normalized);
+            ataDot = (ataDot + 1) / 2; // Adjust from 0-1 instead of -1 to 1
+            return ataDot * ataDot;
+        }
+
+        public float TargetPriAcceleration() // Normalized clamped acceleration for the target
+        {
+            float bodyGravity = (float)PhysicsGlobals.GravitationalAcceleration * (float)vessel.orbit.referenceBody.GeeASL; // Set gravity for calculations;
+            float forwardAccel = Mathf.Abs((float)Vector3.Dot(vessel.acceleration, vessel.vesselTransform.up)); // Forward acceleration
+            return 0.1f * Mathf.Clamp(forwardAccel / bodyGravity, 0f, 10f); // Output is 0-1 (0.1 is equal to body gravity)
+        }
+
+        public float TargetPriClosureTime(MissileFire myMf) // Time to closest point of approach, normalized for one minute
+        {
+            float targetDistance = Vector3.Distance(vessel.transform.position, myMf.vessel.transform.position);
+            Vector3 currVel = (float)myMf.vessel.srfSpeed * myMf.vessel.Velocity().normalized;
+            float closureTime = Mathf.Clamp((float)(1 / ((vessel.Velocity() - currVel).magnitude / targetDistance)), 0f, 60f);
+            return 1 - closureTime / 60f;
+        }
+
+        public float TargetPriWeapons(MissileFire mf, MissileFire myMf) // Relative number of weapons of target compared to own weapons
+        {
+            float targetWeapons = mf.CountWeapons(); // Counts weapons
+            float myWeapons = myMf.CountWeapons(); // Counts weapons
+            // float targetWeapons = mf.weaponArray.Length - 1; // Counts weapon groups
+            // float myWeapons = myMf.weaponArray.Length - 1; // Counts weapon groups
+            if (mf.weaponArray.Length > 0)
+            {
+                return Mathf.Max((targetWeapons - myWeapons) / targetWeapons, 0); // Ranges 0-1, 0 if target has same # of weapons, 1 if they have weapons and we don't
+            }
+            else
+            {
+                return 0; // Target doesn't have any weapons
+            }
+        }
+
+        public float TargetPriFriendliesEngaging(MissileFire myMf)
+        {
+            float friendsEngaging = Mathf.Max(NumFriendliesEngaging(myMf.Team)-1,0);
+            float teammates = myMf.wingCommander.friendlies.Count;
+            if (teammates > 0)
+                return 1 - Mathf.Clamp(friendsEngaging / teammates, 0f, 1f); // Ranges from 0 to 1
+            else
+                return 0; // No teammates
+        }
+
+        public float TargetPriThreat(MissileFire mf, MissileFire myMf)
+        {
+            float firingAtMe = 0;
+            var pilotAI = myMf.vessel.FindPartModuleImplementing<BDModulePilotAI>(); // Get the pilot AI if the vessel has one.
+            if (mf.vessel == myMf.incomingThreatVessel)
+            {
+                if (myMf.missileIsIncoming)
+                    firingAtMe = 1f;
+                else if (myMf.underFire)
+                {
+                    if (pilotAI)
+                    {
+                        if (pilotAI.evasionThreshold > 0) // If there is an evasionThreshold, use it to calculate the threat, 0.5 is missDistance = evasionThreshold
+                        {
+                            float missDistance = Mathf.Clamp(myMf.incomingMissDistance, 0, pilotAI.evasionThreshold * 2f);
+                            firingAtMe = 1f - missDistance / (pilotAI.evasionThreshold * 2f); // Ranges from 0-1
+                        }
+                        else
+                            firingAtMe = 1f; // Otherwise threat is 1
+                    }
+                    else // SurfaceAI
+                    {
+                        firingAtMe = 1f;
+                    }
+                }
+
+            }
+            return firingAtMe;
+        }
+
+        public float TargetPriAoD(MissileFire myMF)
+        {
+            var relativePosition = vessel.transform.position - myMF.vessel.transform.position;
+            float theta = Vector3.Angle(myMF.vessel.srf_vel_direction, relativePosition);
+            return Mathf.Clamp(((Mathf.Pow(Mathf.Cos(theta / 2f), 2f) + 1f) * 100f / Mathf.Max(10f, relativePosition.magnitude))/2, 0, 1); // Ranges from 0 to 1, clamped at 1 for distances closer than 100m
+        }
+        // End functions used for prioritizing targets
+        #endregion
 
         public int TotalEngaging()
         {

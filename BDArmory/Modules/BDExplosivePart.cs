@@ -110,8 +110,7 @@ namespace BDArmory.Modules
                 {
                     direction = (part.transform.position + part.rb.velocity * Time.deltaTime).normalized;
                 }
-                ExplosionFx.CreateExplosion(part.transform.position, tntMass,
-                    explModelPath, explSoundPath, true, 0, part, direction);
+                ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, part, null, direction);
                 hasDetonated = true;
             }
         }
@@ -121,8 +120,7 @@ namespace BDArmory.Modules
             if (!hasDetonated && Armed)
             {
                 part.Destroy();
-                ExplosionFx.CreateExplosion(part.transform.position, tntMass,
-                    explModelPath, explSoundPath, true, 0, part);
+                ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, part);
             }
         }
 

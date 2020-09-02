@@ -195,10 +195,10 @@ namespace BDArmory.Modules
         }
 
         public double ammoCount;
-		public string ammoLeft; //#191
-		
-		public string GetSubLabel() //I think BDArmorySetup only calls this for the first instance of a particular ShortName, so this probably won't result in a group of n guns having n GetSublabelCalls per frame
-		{
+        public string ammoLeft; //#191
+
+        public string GetSubLabel() //I think BDArmorySetup only calls this for the first instance of a particular ShortName, so this probably won't result in a group of n guns having n GetSublabelCalls per frame
+        {
             using (List<Part>.Enumerator craftPart = vessel.parts.GetEnumerator())
             {
                 ammoLeft = "Ammo Left: " + ammoCount.ToString("0");
@@ -218,7 +218,7 @@ namespace BDArmory.Modules
                 weapon.Dispose();
             }
             return ammoLeft;
-		}
+        }
 
         public string GetMissileType()
         {
@@ -747,7 +747,7 @@ namespace BDArmory.Modules
             }
 
             SetupBullet();
-			SetInitialDetonationDistance();
+            SetInitialDetonationDistance();
             if (bulletInfo == null)
             {
                 if (BDArmorySettings.DRAW_DEBUG_LABELS)
@@ -1143,6 +1143,7 @@ namespace BDArmory.Modules
                             //firing bullet
                             GameObject firedBullet = bulletPool.GetPooledObject();
                             PooledBullet pBullet = firedBullet.GetComponent<PooledBullet>();
+
 
                             firedBullet.transform.position = fireTransform.position;
 
@@ -2263,24 +2264,24 @@ namespace BDArmory.Modules
         }
 
         protected void SetInitialDetonationDistance()
-		{
-			if (this.detonationRange == -1)
-			{
-				if (eWeaponType == WeaponTypes.Ballistic && (bulletInfo.tntMass != 0 && (proximityDetonation || airDetonation)))
-				{
-					detonationRange = (BlastPhysicsUtils.CalculateBlastRange(bulletInfo.tntMass) * 0.66f);
-				}
-				else
-				{
-					detonationRange = 0f;
-					proximityDetonation = false;
-				}
-			}
-			if (BDArmorySettings.DRAW_DEBUG_LABELS)
-			{
-				Debug.Log("[BDArmory]: DetonationDistance = : " + detonationRange);
-			}
-		}     
+        {
+            if (this.detonationRange == -1)
+            {
+                if (eWeaponType == WeaponTypes.Ballistic && (bulletInfo.tntMass != 0 && (proximityDetonation || airDetonation)))
+                {
+                    detonationRange = (BlastPhysicsUtils.CalculateBlastRange(bulletInfo.tntMass) * 0.66f);
+                }
+                else
+                {
+                    detonationRange = 0f;
+                    proximityDetonation = false;
+                }
+            }
+            if (BDArmorySettings.DRAW_DEBUG_LABELS)
+            {
+                Debug.Log("[BDArmory]: DetonationDistance = : " + detonationRange);
+            }
+        }
 
         #endregion Bullets
 

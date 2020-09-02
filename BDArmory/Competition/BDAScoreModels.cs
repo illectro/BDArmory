@@ -1,0 +1,202 @@
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace BDArmory.Competition
+{
+
+    [Serializable]
+    public class CompetitionModel
+    {
+        public int id;
+        public string name;
+        public int status;
+        public int stage;
+        public int remaining_heats;
+        public string started_at;
+        public string ended_at;
+        public string created_at;
+        public string updated_at;
+
+        public override string ToString() { return "{id: " + id + ", name: " + name + ", status: " + status + ", stage: " + stage + ", started_at: " + started_at + ", ended_at: " + ended_at + ", created_at: " + created_at + ", updated_at: " + updated_at + "}"; }
+    }
+
+    [Serializable]
+    public class CompetitionResponse
+    {
+        public CompetitionModel competition;
+    }
+
+    [Serializable]
+    public class PlayerCollection
+    {
+        public List<PlayerModel> players;
+    }
+
+    [Serializable]
+    public class PlayerModel
+    {
+        public int id;
+        public string name;
+        public override string ToString() { return "{id: " + id + ", name: " + name + "}"; }
+        public static List<PlayerModel> FromCsv(string csv)
+        {
+            List<PlayerModel> results = new List<PlayerModel>();
+            string[] lines = csv.Split('\n');
+            if (lines.Length > 0)
+            {
+                for (var k = 1; k < lines.Length; k++)
+                {
+                    //                    Debug.Log(string.Format("PlayerModel.FromCsv line {0}", lines[k]));
+                    if (!lines[k].Contains(","))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        string[] values = lines[k].Split(',');
+                        if (values.Length > 0)
+                        {
+                            PlayerModel model = new PlayerModel();
+                            model.id = int.Parse(values[0]);
+                            model.name = values[1];
+                            results.Add(model);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log("PlayerModel.FromCsv error: " + e);
+                    }
+                }
+            }
+            return results;
+        }
+    }
+
+    [Serializable]
+    public class HeatCollection
+    {
+        public List<HeatModel> heats;
+    }
+
+    [Serializable]
+    public class HeatModel
+    {
+        public int id;
+        public int competition_id;
+        public int order;
+        public int stage;
+        public string started_at;
+        public string ended_at;
+
+        public bool Started() { return started_at != null && !"".Equals(started_at) && ended_at == null && !"".Equals(ended_at); }
+        public bool Available() { return (started_at == null || "".Equals(started_at)) && (ended_at == null || "".Equals(ended_at)); }
+        public override string ToString() { return "{id: " + id + ", competition_id: " + competition_id + ", order: " + order + ", stage: " + stage + ", started_at: " + started_at + ", ended_at: " + ended_at + "}"; }
+        public static List<HeatModel> FromCsv(string csv)
+        {
+            List<HeatModel> results = new List<HeatModel>();
+            string[] lines = csv.Split('\n');
+            if (lines.Length > 0)
+            {
+                for (var k = 1; k < lines.Length; k++)
+                {
+                    //                    Debug.Log(string.Format("HeatModel.FromCsv line {0}", lines[k]));
+                    if (!lines[k].Contains(","))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        string[] values = lines[k].Split(',');
+                        if (values.Length > 0)
+                        {
+                            HeatModel model = new HeatModel();
+                            model.id = int.Parse(values[0]);
+                            model.competition_id = int.Parse(values[1]);
+                            model.stage = int.Parse(values[2]);
+                            model.order = int.Parse(values[3]);
+                            model.started_at = values[4];
+                            model.ended_at = values[5];
+                            results.Add(model);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log("HeatModel.FromCsv error: " + e);
+                    }
+                }
+            }
+            return results;
+        }
+    }
+
+    [Serializable]
+    public class VesselCollection
+    {
+        public List<VesselModel> vessels;
+    }
+
+    [Serializable]
+    public class VesselModel
+    {
+        public int id;
+        public int player_id;
+        public int competition_id;
+        public string craft_url;
+        public override string ToString() { return "{id: " + id + ", competition_id: " + competition_id + ", player_id: " + player_id + ", craft_url: " + craft_url + "}"; }
+        public static List<VesselModel> FromCsv(string csv)
+        {
+            List<VesselModel> results = new List<VesselModel>();
+            string[] lines = csv.Split('\n');
+            if (lines.Length > 0)
+            {
+                for (var k = 1; k < lines.Length; k++)
+                {
+                    //                    Debug.Log(string.Format("VesselModel.FromCsv line {0}", lines[k]));
+                    if (!lines[k].Contains(","))
+                    {
+                        continue;
+                    }
+                    try
+                    {
+                        string[] values = lines[k].Split(',');
+                        if (values.Length > 0)
+                        {
+                            VesselModel model = new VesselModel();
+                            model.id = int.Parse(values[0]);
+                            model.player_id = int.Parse(values[1]);
+                            model.craft_url = values[2];
+                            results.Add(model);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.Log("VesselModel.FromCsv error: " + e);
+                    }
+                }
+            }
+            return results;
+        }
+    }
+
+    [Serializable]
+    public class RecordModel
+    {
+        public int competition_id;
+        public int vessel_id;
+        public int heat_id;
+        public int hits;
+        public int kills;
+        public int deaths;
+        public float distance;
+        public string weapon;
+
+        public string ToJSON()
+        {
+            string result = JsonUtility.ToJson(this);
+            Debug.Log(string.Format("[RecordModel] json: {0}", result));
+            return result;
+        }
+    }
+}

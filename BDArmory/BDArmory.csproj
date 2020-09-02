@@ -118,11 +118,18 @@
     <Reference Include="UnityEngine.UIModule">
       <HintPath>..\..\_LocalDev\KSPRefs\UnityEngine.UIModule.dll</HintPath>
     </Reference>
+    <Reference Include="UnityEngine.UnityWebRequestModule">
+      <HintPath>..\..\_LocalDev\KSPRefs\UnityEngine.UnityWebRequestModule.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine.UnityWebRequestWWWModule">
       <HintPath>..\..\_LocalDev\KSPRefs\UnityEngine.UnityWebRequestWWWModule.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Competition\BDAScoreClient.cs" />
+    <Compile Include="Competition\BDAScoreModels.cs" />
+    <Compile Include="Competition\BDAScoreService.cs" />
+    <Compile Include="Competition\RemoteOrchestrationWindow.cs" />
     <Compile Include="Guidances\BallisticGuidance.cs" />
     <Compile Include="Guidances\IGuidance.cs" />
     <Compile Include="Misc\BDTeam.cs" />
@@ -274,6 +281,7 @@
     <None Include="Distribution\GameData\BDArmory\Localization\localization-en-us.cfg" />
     <None Include="Distribution\GameData\BDArmory\Localization\localization-zh-cn.cfg" />
     <None Include="Distribution\GameData\BDArmory\Localization\part_deformatter.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Localization\UI\en-us.cfg" />
     <None Include="Distribution\GameData\BDArmory\MMPatches\000000_HitpointModule.cfg" />
     <None Include="Distribution\GameData\BDArmory\MMPatches\000000_HitpointModule_PartFixes.cfg" />
     <None Include="Distribution\GameData\BDArmory\MMPatches\10_bdac_stealth.cfg" />
@@ -382,8 +390,10 @@
     <None Include="Distribution\GameData\BDArmory\Parts\jdamMk83\jdam.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\jdamMk83\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\m102.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\m102HE.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\m1Abrams\m1Abrams.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Parts\m1Abrams\m1AbramsHE.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\m1Abrams\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\m1Abrams\sounds\reload.ogg" />
     <None Include="Distribution\GameData\BDArmory\Parts\m1Abrams\sounds\shot.ogg" />
@@ -586,8 +596,10 @@
     <Content Include="Distribution\GameData\BDArmory\Parts\jdamMk83\tex_jdam.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\muzzle.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\tex_m102.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\m102Howitzer\tex_m102B2.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m1Abrams\muzzle.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m1Abrams\tex_abrams.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\m1Abrams\tex_abramsB2.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m230ChainGun\muzzle.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m230ChainGun\smoke.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\m230ChainGun\texture.png" />

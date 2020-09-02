@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BDArmory.Core;
 using BDArmory.Core.Extension;
@@ -31,25 +32,22 @@ namespace BDArmory.FX
         public static void SetupShellPool()
         {
             GameObject templateShell_large;
-            templateShell_large =
-                    Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/bulletDecal/BulletDecal2"));
+            templateShell_large = (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/bulletDecal/BulletDecal2"));
             templateShell_large.SetActive(false);
             if (decalPool_large == null)
-                decalPool_large = ObjectPool.CreateObjectPool(templateShell_large, BDArmorySettings.MAX_NUM_BULLET_DECALS, true, true);
+                decalPool_large = ObjectPool.CreateObjectPool(templateShell_large, BDArmorySettings.MAX_NUM_BULLET_DECALS, false, true, false, true);
 
             GameObject templateShell_small;
-            templateShell_small =
-                Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/bulletDecal/BulletDecal1"));
+            templateShell_small = (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/bulletDecal/BulletDecal1"));
             templateShell_small.SetActive(false);
             if (decalPool_small == null)
-                decalPool_small = ObjectPool.CreateObjectPool(templateShell_small, BDArmorySettings.MAX_NUM_BULLET_DECALS, true, true);
+                decalPool_small = ObjectPool.CreateObjectPool(templateShell_small, BDArmorySettings.MAX_NUM_BULLET_DECALS, false, true, false, true);
         }
 
         public static void SpawnDecal(RaycastHit hit, Part hitPart, float caliber, float penetrationfactor)
         {
             if (!BDArmorySettings.BULLET_DECALS) return;
             ObjectPool decalPool_;
-
             if (caliber >= 90f)
             {
                 decalPool_ = decalPool_large;
@@ -61,6 +59,7 @@ namespace BDArmory.FX
 
             //front hit
             GameObject decalFront = decalPool_.GetPooledObject();
+
             if (decalFront != null && hitPart != null)
             {
                 decalFront.transform.SetParent(hitPart.transform);
@@ -144,7 +143,7 @@ namespace BDArmory.FX
             audioSource.spatialBlend = 1;
             audioSource.volume = BDArmorySettings.BDARMORY_WEAPONS_VOLUME;
 
-            int random = Random.Range(1, 3);
+            int random = UnityEngine.Random.Range(1, 3);
 
             if (ricochet)
             {

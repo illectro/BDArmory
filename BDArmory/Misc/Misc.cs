@@ -1,15 +1,16 @@
-using System;
-using System.Collections.Generic;
-using System.Reflection;
+using BDArmory.Core.Extension;
+using BDArmory.Core;
+using BDArmory.FX;
 using BDArmory.Modules;
 using BDArmory.UI;
-using UniLinq;
-using UnityEngine;
-using Object = UnityEngine.Object;
 using KSP.IO;
 using KSP.UI.Screens;
-using BDArmory.FX;
-using BDArmory.Core;
+using Object = UnityEngine.Object;
+using System.Collections.Generic;
+using System.Reflection;
+using System;
+using UniLinq;
+using UnityEngine;
 
 namespace BDArmory.Misc
 {
@@ -357,7 +358,7 @@ namespace BDArmory.Misc
             foreach (MissileFire missileFire in v.FindPartModulesImplementing<MissileFire>())
             {
                 PartExploderSystem.AddPartToExplode(missileFire.part);
-                ExplosionFx.CreateExplosion(missileFire.part.transform.position, 0.2f, explModelPath, explSoundPath, true, 0, missileFire.part);
+                ExplosionFx.CreateExplosion(missileFire.part.transform.position, 0.2f, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, missileFire.part);
             }
         }
 

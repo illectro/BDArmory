@@ -188,7 +188,7 @@ namespace BDArmory.Modules
         {
             ContactPoint contact = col.contacts[0];
             Vector3 pos = contact.point;
-            ExplosionFx.CreateExplosion(pos, blastForce, subExplModelPath, subExplSoundPath, true);
+            ExplosionFx.CreateExplosion(pos, blastForce, subExplModelPath, subExplSoundPath, ExplosionSourceType.Missile);
         }
 
         void FixedUpdate()
@@ -246,7 +246,7 @@ namespace BDArmory.Modules
 
         void Detonate(Vector3 pos)
         {
-            ExplosionFx.CreateExplosion(pos, blastForce, subExplModelPath, subExplSoundPath, true);
+            ExplosionFx.CreateExplosion(pos, blastForce, subExplModelPath, subExplSoundPath, ExplosionSourceType.Missile);
             Destroy(gameObject);
         }
 

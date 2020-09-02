@@ -163,9 +163,11 @@ namespace BDArmory.UI
             if (windowPosition.x < 0) windowPosition.x = 0;
             if (windowPosition.y < 0) windowPosition.y = 0;
 
-            if (windowPosition.xMax > Screen.width)
+            if (windowPosition.xMax > Screen.width) // Don't go off the right of the screen.
                 windowPosition.x = Screen.width - windowPosition.width;
-            if (windowPosition.yMax > Screen.height)
+            if (windowPosition.height > Screen.height) // Don't go off the top of the screen.
+                windowPosition.y = 0;
+            else if (windowPosition.yMax > Screen.height) // Don't go off the bottom of the screen.
                 windowPosition.y = Screen.height - windowPosition.height;
         }
 
