@@ -1780,6 +1780,7 @@ namespace BDArmory.Modules
 
         IEnumerator AimAndFireAtEndOfFrame()
         {
+            if (this == null) yield break;
             if (eWeaponType != WeaponTypes.Laser) yield return new WaitForEndOfFrame();
 
             UpdateTargetVessel();

@@ -18,8 +18,10 @@ namespace BDArmory.Competition
         public static BDAScoreService Instance;
 
         private HashSet<string> activePlayers = new HashSet<string>();
+        public Dictionary<string, Dictionary<string, double>> timeOfLastHitOnTarget = new Dictionary<string, Dictionary<string, double>>();
         public Dictionary<string, Dictionary<string, int>> hitsOnTarget = new Dictionary<string, Dictionary<string, int>>();
         public Dictionary<string, Dictionary<string, int>> killsOnTarget = new Dictionary<string, Dictionary<string, int>>();
+        public Dictionary<string, int> assists = new Dictionary<string, int>();
         public Dictionary<string, int> deaths = new Dictionary<string, int>();
         public Dictionary<string, string> longestHitWeapon = new Dictionary<string, string>();
         public Dictionary<string, double> longestHitDistance = new Dictionary<string, double>();
@@ -236,7 +238,7 @@ namespace BDArmory.Competition
             longestHitWeapon.Clear();
 
             status = StatusType.SpawningVessels;
-            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, 5, true, hash); // FIXME If geo-coords are included in the heat model, then use those instead.
+            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, 5f, 10f, 1f, true, hash); // FIXME If geo-coords are included in the heat model, then use those instead. Also, altitude, spawn distance factor and ease-in speed.
             while (spawner.vesselsSpawning)
                 yield return new WaitForFixedUpdate();
             if (!spawner.vesselSpawnSuccess)
@@ -322,6 +324,7 @@ namespace BDArmory.Competition
                 record.hits = ComputeTotalHits(player.name);
                 record.kills = ComputeTotalKills(player.name);
                 record.deaths = ComputeTotalDeaths(player.name);
+                record.assists = ComputeTotalAssists(player.name);
                 if (longestHitDistance.ContainsKey(player.name))
                 {
                     record.distance = (float)longestHitDistance[player.name];
@@ -363,9 +366,20 @@ namespace BDArmory.Competition
             return result;
         }
 
+        private int ComputeTotalAssists(string playerName)
+        {
+            int result = 0;
+            if (assists.ContainsKey(playerName))
+            {
+                result = assists[playerName];
+            }
+            return result;
+        }
+
         public void TrackHit(string attacker, string target, string weaponName, double hitDistance)
         {
             Debug.Log(string.Format("[BDAScoreService] TrackHit {0} by {1} with {2} at {3}m", target, attacker, weaponName, hitDistance));
+            double now = Planetarium.GetUniversalTime();
             activePlayers.Add(attacker);
             activePlayers.Add(target);
             if (hitsOnTarget.ContainsKey(attacker))
@@ -399,20 +413,58 @@ namespace BDArmory.Competition
                     longestHitDistance.Add(attacker, hitDistance);
                 }
             }
+            if (timeOfLastHitOnTarget.ContainsKey(attacker))
+            {
+                if (timeOfLastHitOnTarget[attacker].ContainsKey(target))
+                {
+                    timeOfLastHitOnTarget[attacker][target] = now;
+                }
+                else
+                {
+                    timeOfLastHitOnTarget[attacker].Add(target, now);
+                }
+            }
+            else
+            {
+                var newTimeOfLast = new Dictionary<string, double>();
+                newTimeOfLast.Add(target, now);
+                timeOfLastHitOnTarget.Add(attacker, newTimeOfLast);
+            }
         }
 
-        public void TrackKill(string attacker, string target)
+        private void ComputeAssists(string target)
         {
-            List<string> list = new List<string>();
-            list.Add(attacker);
-            TrackKill(list, target);
+            var now = Planetarium.GetUniversalTime();
+            var thresholdTime = now - 30; // anyone who hit this target within the last 30sec
+
+            foreach (var attacker in timeOfLastHitOnTarget.Keys)
+            {
+                if( timeOfLastHitOnTarget[attacker].ContainsKey(target) && timeOfLastHitOnTarget[attacker][target] > thresholdTime)
+                {
+                    if( assists.ContainsKey(attacker) )
+                    {
+                        ++assists[attacker];
+                    }
+                    else
+                    {
+                        assists.Add(attacker, 1);
+                    }
+                }
+            }
         }
 
-        public void TrackKill(List<string> attackers, string target)
+        /**
+         * Tracks an unattributed death, where no clear attacker exists.
+         */
+        public void TrackDeath(string target)
         {
-            Debug.Log(string.Format("[BDAScoreService] TrackKill {0} by {1}", target, string.Join(", ", attackers)));
-            attackers.ForEach(e => activePlayers.Add(e));
+            Debug.Log(string.Format("[BDAScoreService] TrackDeath for {0}", target));
             activePlayers.Add(target);
+            IncrementDeath(target);
+        }
+
+        private void IncrementDeath(string target)
+        {
             if (deaths.ContainsKey(target))
             {
                 Debug.Log(string.Format("[BDAScoreService] IncrementDeaths for {0}", target));
@@ -423,29 +475,44 @@ namespace BDArmory.Competition
                 Debug.Log(string.Format("[BDAScoreService] FirstDeath for {0}", target));
                 deaths.Add(target, 1);
             }
+        }
 
-            foreach (string attacker in attackers)
+        /**
+         * Tracks a clean kill, when an attacker decisively kills the target.
+         */
+        public void TrackKill(string attacker, string target)
+        {
+            Debug.Log(string.Format("[BDAScoreService] TrackKill {0} by {1}", target, attacker));
+            activePlayers.Add(attacker);
+            activePlayers.Add(target);
+
+            IncrementKill(attacker, target);
+            IncrementDeath(target);
+            ComputeAssists(target);
+        }
+
+        private void IncrementKill(string attacker, string target)
+        { 
+            // increment kill counter
+            if (killsOnTarget.ContainsKey(attacker))
             {
-                if (killsOnTarget.ContainsKey(attacker))
+                if (killsOnTarget[attacker].ContainsKey(target))
                 {
-                    if (killsOnTarget[attacker].ContainsKey(target))
-                    {
-                        Debug.Log(string.Format("[BDAScoreService] IncrementKills for {0} on {1}", attacker, target));
-                        ++killsOnTarget[attacker][target];
-                    }
-                    else
-                    {
-                        Debug.Log(string.Format("[BDAScoreService] Kill for {0} on {1}", attacker, target));
-                        killsOnTarget[attacker].Add(target, 1);
-                    }
+                    Debug.Log(string.Format("[BDAScoreService] IncrementKills for {0} on {1}", attacker, target));
+                    ++killsOnTarget[attacker][target];
                 }
                 else
                 {
-                    Debug.Log(string.Format("[BDAScoreService] FirstKill for {0} on {1}", attacker, target));
-                    var newKills = new Dictionary<string, int>();
-                    newKills.Add(target, 1);
-                    killsOnTarget.Add(attacker, newKills);
+                    Debug.Log(string.Format("[BDAScoreService] Kill for {0} on {1}", attacker, target));
+                    killsOnTarget[attacker].Add(target, 1);
                 }
+            }
+            else
+            {
+                Debug.Log(string.Format("[BDAScoreService] FirstKill for {0} on {1}", attacker, target));
+                var newKills = new Dictionary<string, int>();
+                newKills.Add(target, 1);
+                killsOnTarget.Add(attacker, newKills);
             }
         }
 

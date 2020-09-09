@@ -292,7 +292,7 @@ namespace BDArmory.Modules
             if (weaponManager && weaponManager.guardMode && !targetVessel)
             {
                 // select target based on competition style
-                TargetInfo potentialTarget = BDArmorySettings.FFA_COMBAT_STYLE ? BDATargetManager.GetClosestTargetWithBiasAndHysteresis(weaponManager) : BDATargetManager.GetLeastEngagedTarget(weaponManager);
+                TargetInfo potentialTarget = BDArmorySettings.DEFAULT_FFA_TARGETING ? BDATargetManager.GetClosestTargetWithBiasAndHysteresis(weaponManager) : BDATargetManager.GetLeastEngagedTarget(weaponManager);
                 if (potentialTarget && potentialTarget.Vessel)
                 {
                     targetVessel = potentialTarget.Vessel;

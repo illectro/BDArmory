@@ -255,6 +255,7 @@ namespace BDArmory.Competition
 
                 yield return webRequest.SendWebRequest();
 
+                Debug.Log(string.Format("[BDAScoreClient] score reporting status: {0}", webRequest.downloadHandler.text));
                 if (webRequest.isHttpError)
                 {
                     Debug.Log(string.Format("[BDAScoreClient] Failed to post records: {0}", webRequest.error));

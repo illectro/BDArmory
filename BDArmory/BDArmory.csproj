@@ -406,6 +406,9 @@
     <None Include="Distribution\GameData\BDArmory\Parts\maverick\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\missileTurret\missileTurret.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\missileTurret\model.mu" />
+    <None Include="Distribution\GameData\BDArmory\Parts\MK1OpenCockpit\mk1opencockpit_RP_Type2.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Parts\MK1OpenCockpit\Mk1OpenCockpit_RP_Type2.mu" />
+    <None Include="Distribution\GameData\BDArmory\Parts\MK1OpenCockpit\Mk1OpenCockpit_RP_Type2_tex.tga" />
     <None Include="Distribution\GameData\BDArmory\Parts\mk82BombBrake\mk82BombBrake.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\mk82BombBrake\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\mk82Bomb\mk82Bomb.cfg" />
@@ -454,6 +457,7 @@
     <None Include="Distribution\GameData\BDArmory\Parts\towLauncher\towLauncher.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\towMissile\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\towMissile\towMissile.cfg" />
+    <None Include="Distribution\GameData\BDArmory\Parts\MK1OpenCockpit\weaponizedcommandseat.cfg" />
     <None Include="Distribution\GameData\BDArmory\Parts\weaponManager\model.mu" />
     <None Include="Distribution\GameData\BDArmory\Parts\weaponManager\weaponManager.cfg" />
     <None Include="Distribution\GameData\BDArmory\Resources\Armor.cfg" />
