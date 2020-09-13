@@ -435,7 +435,7 @@ namespace BDArmory.Control
 
             foreach (var vname in Scores.Keys)
             {
-                Log("[BDACompetitionMode" + CompetitionID.ToString() + "]: Adding Score Tracker For " + vname);
+                Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Adding Score Tracker For " + vname);
             }
 
             if (pilots.Count < 2)
@@ -1600,7 +1600,7 @@ namespace BDArmory.Control
                 else if (pinataAlive && !alive.Contains("Pinata"))
                 {
                     // switch everyone onto separate teams when the Pinata Dies
-                    LoadedVesselSwitcher.MassTeamSwitch();
+                    LoadedVesselSwitcher.Instance.MassTeamSwitch();
                     pinataAlive = false;
                     competitionStatus.Add("Pinata is dead - competition is now a Free for all");
                     // start kill clock

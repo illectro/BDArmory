@@ -436,7 +436,7 @@ namespace BDArmory.UI
             else
             {
                 // Assign the vessels to their own teams.
-                LoadedVesselSwitcher.MassTeamSwitch(true);
+                LoadedVesselSwitcher.Instance.MassTeamSwitch(true);
                 LoadedVesselSwitcher.Instance.ForceSwitchVessel(spawnedVessels.First().Value.Item1); // Update the camera.
                 yield return new WaitForFixedUpdate();
             }
