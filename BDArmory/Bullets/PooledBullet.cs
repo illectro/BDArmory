@@ -544,15 +544,17 @@ namespace BDArmory.Bullets
             var aName = this.sourceVessel.GetName();
             var tName = hitPart.vessel.GetName();
 
-            if (aName != tName)
+            if (aName != tName && BDACompetitionMode.Instance.Scores.ContainsKey(aName) && BDACompetitionMode.Instance.Scores.ContainsKey(tName))
             {
                 //Debug.Log("[BDArmory]: Weapon from " + aName + " damaged " + tName);
 
                 if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                {
                     BDAScoreService.Instance.TrackHit(aName, tName, bullet.name, distanceTraveled);
+                    BDAScoreService.Instance.TrackDamage(aName, tName, damage);
+                }
 
                 // update scoring structure on attacker
-                if (BDACompetitionMode.Instance.Scores.ContainsKey(aName))
                 {
                     var aData = BDACompetitionMode.Instance.Scores[aName];
                     aData.Score += 1;
@@ -565,8 +567,8 @@ namespace BDArmory.Bullets
                     }
 
                 }
+
                 // update scoring structure on the defender.
-                if (BDACompetitionMode.Instance.Scores.ContainsKey(tName))
                 {
                     var tData = BDACompetitionMode.Instance.Scores[tName];
                     tData.lastPersonWhoHitMe = aName;

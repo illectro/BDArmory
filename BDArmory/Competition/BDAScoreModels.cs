@@ -186,7 +186,10 @@ namespace BDArmory.Competition
         public int competition_id;
         public int vessel_id;
         public int heat_id;
-        public int hits;
+        public int hits_out;
+        public int hits_in;
+        public double dmg_out;
+        public double dmg_in;
         public int assists;
         public int kills;
         public int deaths;

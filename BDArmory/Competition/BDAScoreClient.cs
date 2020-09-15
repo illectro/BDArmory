@@ -320,7 +320,10 @@ namespace BDArmory.Competition
             // load the file and modify its vessel name to match the player
             string[] lines = File.ReadAllLines(filename);
             string pattern = ".*ship = (.+)";
-            string[] modifiedLines = lines.Select(e => Regex.Replace(e, pattern, "ship = " + p.name)).ToArray();
+            string[] modifiedLines = lines
+                .Select(e => Regex.Replace(e, pattern, "ship = " + p.name))
+                .Where(e => !e.Contains("VESSELNAMING"))
+                .ToArray();
             File.WriteAllLines(filename, modifiedLines);
             Debug.Log(string.Format("[BDAScoreClient] Saved craft for player {0}", p.name));
         }

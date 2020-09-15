@@ -234,6 +234,7 @@
     <Compile Include="UI\IBDWMModule.cs" />
     <Compile Include="UI\KrakensbaneDebug.cs" />
     <Compile Include="UI\VesselSpawner.cs" />
+    <Compile Include="UI\VesselSpawnerField.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BDArmory.Core\BDArmory.Core.csproj">

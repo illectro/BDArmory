@@ -29,7 +29,6 @@ namespace BDArmory.UI
 
         private bool _ready;
         private bool _showGui;
-        private static bool _teamSwitchDirty;
         private bool _autoCameraSwitch = false;
 
         private readonly float _titleHeight = 30;
@@ -46,8 +45,6 @@ namespace BDArmory.UI
         public SortedList<string, List<MissileFire>> weaponManagers = new SortedList<string, List<MissileFire>>();
         private Dictionary<string, float> cameraScores = new Dictionary<string, float>();
 
-
-        private MissileFire _wmToSwitchTeam;
 
         // booleans to track state of buttons affecting everyone
         private bool _freeForAll = false;
@@ -262,40 +259,6 @@ namespace BDArmory.UI
                 {
                     Misc.Misc.UpdateGUIRect(new Rect(), _guiCheckIndex);
                 }
-
-                if (_teamSwitchDirty)
-                {
-
-                    if (_wmToSwitchTeam)
-                        _wmToSwitchTeam.NextTeam();
-                    else
-                    {
-                        // if no team is specified toggle between FFA and all friends
-                        // FFA button starts timer running
-                        //ResetSpeeds();
-                        _freeForAll = !_freeForAll;
-                        char T = 'A';
-                        // switch everyone to their own teams
-                        var allPilots = new List<MissileFire>();
-                        using (var teamManagers = weaponManagers.GetEnumerator())
-                            while (teamManagers.MoveNext())
-                                using (var wm = teamManagers.Current.Value.GetEnumerator())
-                                    while (wm.MoveNext())
-                                    {
-                                        if (wm.Current == null) continue;
-                                        allPilots.Add(wm.Current);
-
-                                    }
-                        foreach (var pilot in allPilots)
-                        {
-                            Debug.Log("[BDArmory]: assigning " + pilot.vessel.GetDisplayName() + " to team " + T.ToString());
-                            pilot.SetTeam(BDTeam.Get(T.ToString()));
-                            if (_freeForAll) T++;
-                        }
-                    }
-                    _teamSwitchDirty = false;
-                    _wmToSwitchTeam = null;
-                }
             }
         }
 
@@ -409,8 +372,8 @@ namespace BDArmory.UI
             if (GUI.Button(new Rect(BDArmorySettings.VESSEL_SWITCHER_WINDOW_WIDTH - 2 * _buttonHeight - _margin, 4, _buttonHeight, _buttonHeight), "T", _freeForAll ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))
             {
                 // switch everyone onto different teams
-                _teamSwitchDirty = true;
-                _wmToSwitchTeam = null;
+                _freeForAll = !_freeForAll;
+                MassTeamSwitch(_freeForAll);
             }
 
             if (GUI.Button(new Rect(BDArmorySettings.VESSEL_SWITCHER_WINDOW_WIDTH - _buttonHeight - _margin, 4, _buttonHeight, _buttonHeight), "X", BDArmorySetup.BDGuiSkin.button))
@@ -520,13 +483,13 @@ namespace BDArmory.UI
                         switch (BDACompetitionMode.Instance.Scores[key].LastDamageWasFrom())
                         {
                             case DamageFrom.Bullet:
-                                statusString += ") KILLED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe();
+                                statusString += ") KILLED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe() + (BDACompetitionMode.Instance.Scores[key].cleanDeath ? " (Head-shot!)" : ", et al.");
                                 break;
                             case DamageFrom.Missile:
-                                statusString += ") EXPLODED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe();
+                                statusString += ") EXPLODED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe() + (BDACompetitionMode.Instance.Scores[key].cleanDeath ? " (Head-shot!)" : ", et al.");
                                 break;
                             case DamageFrom.Ram:
-                                statusString += ") RAMMED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe();
+                                statusString += ") RAMMED BY " + BDACompetitionMode.Instance.Scores[key].LastPersonWhoDamagedMe() + (BDACompetitionMode.Instance.Scores[key].cleanDeath ? " (Head-shot!)" : ", et al.");
                                 break;
                             default:
                                 statusString += ")";
@@ -726,8 +689,7 @@ namespace BDArmory.UI
                 }
                 else
                 {
-                    _wmToSwitchTeam = wm;
-                    _teamSwitchDirty = true;
+                    wm.NextTeam();
                 }
             }
 
@@ -811,13 +773,15 @@ namespace BDArmory.UI
                 ForceSwitchVessel(firstVessel);
         }
 
-        public static void MassTeamSwitch(bool separateTeams = false)
+        public void MassTeamSwitch(bool separateTeams = false)
         {
-            _teamSwitchDirty = true;
-            if (separateTeams)
+            char T = 'A';
+            // switch everyone to their own teams
+            foreach (var weaponManager in weaponManagers.SelectMany(tm => tm.Value).Where(wm => wm != null).ToList()) // Get a copy in case activating stages causes the weaponManager list to change.
             {
-                Instance._wmToSwitchTeam = null;
-                Instance._freeForAll = false; // It gets toggled to true when the team switch happens.
+                Debug.Log("[BDArmory]: assigning " + weaponManager.vessel.GetDisplayName() + " to team " + T.ToString());
+                weaponManager.SetTeam(BDTeam.Get(T.ToString()));
+                if (separateTeams) T++;
             }
         }
 

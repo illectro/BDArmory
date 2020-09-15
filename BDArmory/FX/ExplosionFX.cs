@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using BDArmory.Bullets;
+using BDArmory.Competition;
 using BDArmory.Control;
 using BDArmory.Core;
 using BDArmory.Core.Extension;
@@ -430,6 +431,8 @@ namespace BDArmory.FX
                                             tData.damageFromBullets[aName] += damage;
                                         else
                                             tData.damageFromBullets.Add(aName, damage);
+                                        if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                                            BDAScoreService.Instance.TrackDamage(aName, tName, damage);
                                         break;
                                     case ExplosionSourceType.Missile:
                                         if (tData.damageFromMissiles.ContainsKey(aName))

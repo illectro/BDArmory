@@ -901,10 +901,6 @@ namespace BDArmory.Radar
                                             break;
                                         }
                                     }
-                                    else
-                                    {
-                                        break;
-                                    }
                                 }
                             }
                             else

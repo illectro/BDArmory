@@ -25,9 +25,9 @@ namespace BDArmory.Control
         public int PinataHits;
         public int totalDamagedPartsDueToRamming = 0;
         public int totalDamagedPartsDueToMissiles = 0;
-        public string lastPersonWhoHitMe;
-        public string lastPersonWhoHitMeWithAMissile;
-        public string lastPersonWhoRammedMe;
+        public string lastPersonWhoHitMe = "";
+        public string lastPersonWhoHitMeWithAMissile = "";
+        public string lastPersonWhoRammedMe = "";
         public double lastHitTime; // Bullets
         public bool tagIsIt = false; // For tag mode
         public int tagKillsWhileIt = 0; // For tag mode
@@ -55,6 +55,7 @@ namespace BDArmory.Control
         public Dictionary<string, int> rammingPartLossCounts = new Dictionary<string, int>();
         public Dictionary<string, int> missilePartDamageCounts = new Dictionary<string, int>();
         public GMKillReason gmKillReason = GMKillReason.None;
+        public bool cleanDeath = false;
 
         public double LastDamageTime()
         {
@@ -264,6 +265,7 @@ namespace BDArmory.Control
 
         void OnDestroy()
         {
+            LogResults();
             StopCompetition();
             StopAllCoroutines();
         }
@@ -288,6 +290,7 @@ namespace BDArmory.Control
             whoCleanShotWhoWithMissiles.Clear();
             whoCleanRammedWho.Clear();
             KillTimer.Clear();
+            pilotActions.Clear(); // Clear the pilotActions, so we don't get "<pilot> is Dead" on the next round of the competition.
             dumpedResults = 5;
             competitionStartTime = competitionIsActive ? Planetarium.GetUniversalTime() : -1;
             nextUpdateTick = competitionStartTime + 2; // 2 seconds before we start tracking
@@ -303,12 +306,7 @@ namespace BDArmory.Control
                     if (pilot == null || !pilot.weaponManager || pilot.weaponManager.Team.Neutral)
                         continue;
                     // put these in the scoring dictionary - these are the active participants
-                    ScoringData vDat = new ScoringData();
-                    vDat.lastPersonWhoHitMe = "";
-                    vDat.lastPersonWhoRammedMe = "";
-                    vDat.lastFiredTime = Planetarium.GetUniversalTime();
-                    vDat.previousPartCount = loadedVessels.Current.parts.Count();
-                    Scores[loadedVessels.Current.GetName()] = vDat;
+                    Scores[loadedVessels.Current.GetName()] = new ScoringData { lastFiredTime = Planetarium.GetUniversalTime(), previousPartCount = loadedVessels.Current.parts.Count };
                 }
         }
 
@@ -345,7 +343,7 @@ namespace BDArmory.Control
             if (!competitionStarting)
             {
                 ResetCompetitionScores();
-                Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Starting Competition ");
+                Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Starting Competition");
                 startCompetitionNow = false;
                 competitionRoutine = StartCoroutine(DogfightCompetitionModeRoutine(distance));
             }
@@ -381,7 +379,11 @@ namespace BDArmory.Control
             GameEvents.onVesselCreate.Add(CheckVesselTypeVesselCreate);
             // GameEvents.onVesselCreate.Add(DebrisDelayedCleanUp);
             competitionStartTime = Planetarium.GetUniversalTime();
+            nextUpdateTick = competitionStartTime + 2; // 2 seconds before we start tracking
+            gracePeriod = competitionStartTime + 60;
+            decisionTick = competitionStartTime + 60; // every 60 seconds we do nasty things
             lastTagUpdateTime = competitionStartTime;
+            Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Competition Started");
         }
 
         IEnumerator DogfightCompetitionModeRoutine(float distance)
@@ -433,7 +435,7 @@ namespace BDArmory.Control
 
             foreach (var vname in Scores.Keys)
             {
-                Log("[BDACompetitionMode" + CompetitionID.ToString() + "]: Adding Score Tracker For " + vname);
+                Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Adding Score Tracker For " + vname);
             }
 
             if (pilots.Count < 2)
@@ -1205,6 +1207,7 @@ namespace BDArmory.Control
             var debrisToKill = new List<Vessel>();
             foreach (var vessel in FlightGlobals.Vessels)
             {
+                if (vessel.vesselType == VesselType.SpaceObject) continue; // Ignore asteroids and comets, killing them off can cause null refs (especially comets).
                 // if (vessel.vesselType == VesselType.Debris) continue; // Handled by DebrisDelayedCleanUp
                 bool activePilot = false;
                 if (BDArmorySettings.RUNWAY_PROJECT && vessel.GetName() == "Pinata")
@@ -1544,7 +1547,7 @@ namespace BDArmory.Control
                         bool shouldKillThis = false;
 
                         // if vessels is Debris, kill it
-                        if (vesselName.Contains("Debris"))
+                        if (vesselName.Contains("Debris")) // FIXME delayed debris cleanup should remove this too
                         {
                             // reap this vessel
                             shouldKillThis = true;
@@ -1597,7 +1600,7 @@ namespace BDArmory.Control
                 else if (pinataAlive && !alive.Contains("Pinata"))
                 {
                     // switch everyone onto separate teams when the Pinata Dies
-                    LoadedVesselSwitcher.MassTeamSwitch();
+                    LoadedVesselSwitcher.Instance.MassTeamSwitch();
                     pinataAlive = false;
                     competitionStatus.Add("Pinata is dead - competition is now a Free for all");
                     // start kill clock
@@ -1635,6 +1638,7 @@ namespace BDArmory.Control
                             {
                                 // if last hit was recent that person gets the kill
                                 whoKilledMe = Scores[key].LastPersonWhoDamagedMe();
+                                Scores[key].cleanDeath = true;
 
                                 var lastDamageWasFrom = Scores[key].LastDamageWasFrom();
                                 switch (lastDamageWasFrom)
@@ -1646,7 +1650,8 @@ namespace BDArmory.Control
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":CLEANKILL:" + whoKilledMe);
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED:" + whoKilledMe);
                                             whoCleanShotWho.Add(key, whoKilledMe);
-                                            Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
+                                            if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                                                Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
                                             whoKilledMe += " (BOOM! HEADSHOT!)";
                                         }
                                         break;
@@ -1656,7 +1661,8 @@ namespace BDArmory.Control
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":CLEANMISSILEKILL:" + whoKilledMe);
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED:" + whoKilledMe);
                                             whoCleanShotWhoWithMissiles.Add(key, whoKilledMe);
-                                            Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
+                                            if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                                                Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
                                             whoKilledMe += " (BOOM! HEADSHOT!)";
                                         }
                                         break;
@@ -1667,7 +1673,8 @@ namespace BDArmory.Control
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":CLEANRAMKILL:" + whoKilledMe);
                                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED VIA RAMMERY BY:" + whoKilledMe);
                                             whoCleanRammedWho.Add(key, whoKilledMe);
-                                            Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
+                                            if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                                                Competition.BDAScoreService.Instance.TrackKill(whoKilledMe, key);
                                             whoKilledMe += " (BOOM! HEADSHOT!)";
                                         }
                                         break;
@@ -1675,7 +1682,7 @@ namespace BDArmory.Control
                                         break;
                                 }
                             }
-                            else if (Scores[key].everyoneWhoHitMe.Count > 0 || Scores[key].everyoneWhoRammedMe.Count > 0)
+                            else if (Scores[key].everyoneWhoHitMe.Count > 0 || Scores[key].everyoneWhoRammedMe.Count > 0 || Scores[key].everyoneWhoHitMeWithMissiles.Count > 0)
                             {
                                 List<string> killReasons = new List<string>();
                                 if (Scores[key].everyoneWhoHitMe.Count > 0)
@@ -1690,7 +1697,8 @@ namespace BDArmory.Control
                                 {
                                     Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED:" + killer);
                                 }
-                                Competition.BDAScoreService.Instance.TrackDeath(key);
+                                if (BDArmorySettings.REMOTE_LOGGING_ENABLED && Scores[key].gmKillReason == GMKillReason.None) // Don't count kills by the GM.
+                                    Competition.BDAScoreService.Instance.ComputeAssists(key, "", Planetarium.GetUniversalTime() - competitionStartTime);
                             }
                         }
                         if (whoKilledMe != "")
@@ -1713,6 +1721,8 @@ namespace BDArmory.Control
                             competitionStatus.Add(key + " was killed");
                             Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED:NOBODY");
                         }
+                        if (BDArmorySettings.REMOTE_LOGGING_ENABLED)
+                            Competition.BDAScoreService.Instance.TrackDeath(key);
                     }
                     doaUpdate += " :" + key + ": ";
                 }
@@ -1782,10 +1792,12 @@ namespace BDArmory.Control
                 return;
             }
 
+
             var logStrings = new List<string>();
 
             // get everyone who's still alive
             HashSet<string> alive = new HashSet<string>();
+            competitionStatus.Add("Dumping scores for competition " + CompetitionID.ToString() + (tag != "" ? " " + tag : ""));
             logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Dumping Results" + (message != "" ? " " + message : "") + " at " + (int)(Planetarium.GetUniversalTime() - competitionStartTime) + "s");
 
 
@@ -1980,7 +1992,8 @@ namespace BDArmory.Control
             {
                 var vessel = rammingInformation[vesselName].vessel;
                 var pilotAI = vessel?.FindPartModuleImplementing<BDModulePilotAI>(); // Get the pilot AI if the vessel has one.
-                                                                                     // Use a parallel foreach for speed. Note that we are only changing values in the dictionary, not adding or removing items, and no item is changed more than once, so this ought to be thread-safe.
+
+                // Use a parallel foreach for speed. Note that we are only changing values in the dictionary, not adding or removing items, and no item is changed more than once, so this ought to be thread-safe.
                 Parallel.ForEach<string>(rammingInformation[vesselName].targetInformation.Keys, (otherVesselName) =>
                 {
                     var otherVessel = rammingInformation[vesselName].targetInformation[otherVesselName].vessel;

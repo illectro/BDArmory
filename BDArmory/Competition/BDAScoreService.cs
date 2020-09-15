@@ -20,6 +20,10 @@ namespace BDArmory.Competition
         private HashSet<string> activePlayers = new HashSet<string>();
         public Dictionary<string, Dictionary<string, double>> timeOfLastHitOnTarget = new Dictionary<string, Dictionary<string, double>>();
         public Dictionary<string, Dictionary<string, int>> hitsOnTarget = new Dictionary<string, Dictionary<string, int>>();
+        public Dictionary<string, int> hitsOut = new Dictionary<string, int>();
+        public Dictionary<string, int> hitsIn = new Dictionary<string, int>();
+        public Dictionary<string, double> damageOut = new Dictionary<string, double>();
+        public Dictionary<string, double> damageIn = new Dictionary<string, double>();
         public Dictionary<string, Dictionary<string, int>> killsOnTarget = new Dictionary<string, Dictionary<string, int>>();
         public Dictionary<string, int> assists = new Dictionary<string, int>();
         public Dictionary<string, int> deaths = new Dictionary<string, int>();
@@ -232,13 +236,18 @@ namespace BDArmory.Competition
             // orchestrate the match
             activePlayers.Clear();
             hitsOnTarget.Clear();
+            hitsOut.Clear();
+            hitsIn.Clear();
+            damageOut.Clear();
+            damageIn.Clear();
             killsOnTarget.Clear();
             deaths.Clear();
+            assists.Clear();
             longestHitDistance.Clear();
             longestHitWeapon.Clear();
 
             status = StatusType.SpawningVessels;
-            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, 5f, 10f, 1f, true, hash); // FIXME If geo-coords are included in the heat model, then use those instead. Also, altitude, spawn distance factor and ease-in speed.
+            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, BDArmorySettings.VESSEL_SPAWN_ALTITUDE, BDArmorySettings.VESSEL_SPAWN_DISTANCE, BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED, true, hash);
             while (spawner.vesselsSpawning)
                 yield return new WaitForFixedUpdate();
             if (!spawner.vesselSpawnSuccess)
@@ -246,22 +255,11 @@ namespace BDArmory.Competition
                 Debug.Log("[BDAScoreService] Vessel spawning failed."); // FIXME Now what?
                 yield break;
             }
-            // if (CompetitionHub != null) // Example of how to spawn extra vessels from another folder.
-            // {
-            //     spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, 1, false, hash+"/"+hubCraftPath);
-            //     while (spawner.vesselsSpawning)
-            //         yield return new WaitForFixedUpdate();
-            //     if (!spawner.vesselSpawnSuccess)
-            //     {
-            //         Debug.Log("[BDAScoreService] Vessel spawning failed for CompetitionHub."); // FIXME Now what?
-            //         yield break;
-            //     }
-            // }
             yield return new WaitForFixedUpdate();
 
             status = StatusType.RunningHeat;
             // NOTE: runs in separate coroutine
-            BDACompetitionMode.Instance.StartCompetitionMode(1000);
+            BDACompetitionMode.Instance.StartCompetitionMode(BDArmorySettings.COMPETITION_DISTANCE);
 
             // start timer coroutine for the duration specified in settings UI
             var duration = Core.BDArmorySettings.COMPETITION_DURATION * 60f;
@@ -281,13 +279,6 @@ namespace BDArmory.Competition
             // stop competition
             BDACompetitionMode.Instance.StopCompetition();
             BDACompetitionMode.Instance.LogResults("for BDAScoreService"); // Make sure the results are dumped to the log.
-
-            // status = StatusType.RemovingVessels;
-            // // remove all spawned vehicles // Note: Vessel and debris clean-up happens during vessel spawning (also the currently focussed vessel doesn't get killed when telling it to Die...)
-            // foreach (Vessel v in FlightGlobals.Vessels.Where(e => !e.vesselName.Equals("CompetitionHub")))
-            // {
-            //     v.Die();
-            // }
         }
 
         private IEnumerator SendScores(string hash, HeatModel heat)
@@ -321,7 +312,10 @@ namespace BDArmory.Competition
                 record.vessel_id = vessel.id;
                 record.competition_id = int.Parse(hash);
                 record.heat_id = heat.id;
-                record.hits = ComputeTotalHits(player.name);
+                record.hits_out = ComputeTotalHitsOut(player.name);
+                record.hits_in = ComputeTotalHitsIn(player.name);
+                record.dmg_out = ComputeTotalDamageOut(player.name);
+                record.dmg_in = ComputeTotalDamageIn(player.name);
                 record.kills = ComputeTotalKills(player.name);
                 record.deaths = ComputeTotalDeaths(player.name);
                 record.assists = ComputeTotalAssists(player.name);
@@ -336,12 +330,42 @@ namespace BDArmory.Competition
             return results;
         }
 
-        private int ComputeTotalHits(string playerName)
+        private int ComputeTotalHitsOut(string playerName)
         {
             int result = 0;
-            if (hitsOnTarget.ContainsKey(playerName))
+            if (hitsOut.ContainsKey(playerName))
             {
-                result = hitsOnTarget[playerName].Values.Sum();
+                result = hitsOut[playerName];
+            }
+            return result;
+        }
+
+        private int ComputeTotalHitsIn(string playerName)
+        {
+            int result = 0;
+            if (hitsIn.ContainsKey(playerName))
+            {
+                result = hitsIn[playerName];
+            }
+            return result;
+        }
+
+        private double ComputeTotalDamageOut(string playerName)
+        {
+            double result = 0;
+            if (damageOut.ContainsKey(playerName))
+            {
+                result = damageOut[playerName];
+            }
+            return result;
+        }
+
+        private double ComputeTotalDamageIn(string playerName)
+        {
+            double result = 0;
+            if (damageIn.ContainsKey(playerName))
+            {
+                result = damageIn[playerName];
             }
             return result;
         }
@@ -376,9 +400,33 @@ namespace BDArmory.Competition
             return result;
         }
 
+        public void TrackDamage(string attacker, string target, double damage)
+        {
+            Debug.Log(string.Format("[BDAScoreService] TrackDamage by {0} on {1} for {2}hp", target, attacker, damage));
+            double now = Planetarium.GetUniversalTime();
+            activePlayers.Add(attacker);
+            activePlayers.Add(target);
+            if (damageOut.ContainsKey(attacker))
+            {
+                damageOut[attacker] += damage;
+            }
+            else
+            {
+                damageOut.Add(attacker, damage);
+            }
+            if (damageIn.ContainsKey(target))
+            {
+                damageIn[target] += damage;
+            }
+            else
+            {
+                damageIn.Add(target, damage);
+            }
+        }
+
         public void TrackHit(string attacker, string target, string weaponName, double hitDistance)
         {
-            Debug.Log(string.Format("[BDAScoreService] TrackHit {0} by {1} with {2} at {3}m", target, attacker, weaponName, hitDistance));
+            Debug.Log(string.Format("[BDAScoreService] TrackHit by {0} on {1} with {2} at {3}m", target, attacker, weaponName, hitDistance));
             double now = Planetarium.GetUniversalTime();
             activePlayers.Add(attacker);
             activePlayers.Add(target);
@@ -399,9 +447,25 @@ namespace BDArmory.Competition
                 newHits.Add(target, 1);
                 hitsOnTarget.Add(attacker, newHits);
             }
+            if (hitsOut.ContainsKey(attacker))
+            {
+                ++hitsOut[attacker];
+            }
+            else
+            {
+                hitsOut.Add(attacker, 1);
+            }
+            if (hitsIn.ContainsKey(target))
+            {
+                ++hitsIn[target];
+            }
+            else
+            {
+                hitsIn.Add(target, 1);
+            }
             if (!longestHitDistance.ContainsKey(attacker) || hitDistance > longestHitDistance[attacker])
             {
-                Debug.Log(string.Format("[BDACompetitionMode] Tracked hit for {0} with {1} at {2}", attacker, weaponName, hitDistance));
+                Debug.Log(string.Format("[BDACompetitionMode] Tracked longest hit for {0} with {1} at {2}m", attacker, weaponName, hitDistance));
                 if (longestHitDistance.ContainsKey(attacker))
                 {
                     longestHitWeapon[attacker] = weaponName;
@@ -432,16 +496,17 @@ namespace BDArmory.Competition
             }
         }
 
-        private void ComputeAssists(string target)
+        public void ComputeAssists(string target, string killer = "", double timeLimit = 30)
         {
             var now = Planetarium.GetUniversalTime();
-            var thresholdTime = now - 30; // anyone who hit this target within the last 30sec
+            var thresholdTime = now - timeLimit; // anyone who hit this target within the last 30sec
 
             foreach (var attacker in timeOfLastHitOnTarget.Keys)
             {
-                if( timeOfLastHitOnTarget[attacker].ContainsKey(target) && timeOfLastHitOnTarget[attacker][target] > thresholdTime)
+                if (attacker == killer) continue; // Don't award assists to the killer.
+                if (timeOfLastHitOnTarget[attacker].ContainsKey(target) && timeOfLastHitOnTarget[attacker][target] > thresholdTime)
                 {
-                    if( assists.ContainsKey(attacker) )
+                    if (assists.ContainsKey(attacker))
                     {
                         ++assists[attacker];
                     }
@@ -487,12 +552,11 @@ namespace BDArmory.Competition
             activePlayers.Add(target);
 
             IncrementKill(attacker, target);
-            IncrementDeath(target);
-            ComputeAssists(target);
+            ComputeAssists(target, attacker, 30);
         }
 
         private void IncrementKill(string attacker, string target)
-        { 
+        {
             // increment kill counter
             if (killsOnTarget.ContainsKey(attacker))
             {
