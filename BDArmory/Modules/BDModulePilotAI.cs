@@ -251,6 +251,11 @@ namespace BDArmory.Modules
          UI_FloatRange(minValue = 0f, maxValue = 100f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float evasionThreshold = 50f;
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_EvasionTimeThreshold", advancedTweakable = true, // Time on Target Threshold
+            groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_PilotAI_EvadeExtend", groupStartCollapsed = true),
+         UI_FloatRange(minValue = 0f, maxValue = 1f, stepIncrement = 0.01f, scene = UI_Scene.All)]
+        public float evasionTimeThreshold = 0f;
+
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_ExtendMultiplier", advancedTweakable = true, //Extend Distance Multiplier
             groupName = "pilotAI_EvadeExtend", groupDisplayName = "#LOC_BDArmory_PilotAI_EvadeExtend", groupStartCollapsed = true),
          UI_FloatRange(minValue = 0f, maxValue = 2f, stepIncrement = .1f, scene = UI_Scene.All)]
@@ -306,6 +311,7 @@ namespace BDArmory.Modules
             { nameof(extendMult), 200f },
             { nameof(minEvasionTime), 10f },
             { nameof(evasionThreshold), 300f },
+            { nameof(evasionTimeThreshold), 3f },
             { nameof(turnRadiusTwiddleFactorMin), 10f},
             { nameof(turnRadiusTwiddleFactorMax), 10f},
             { nameof(controlSurfaceLag), 1f},
@@ -796,20 +802,26 @@ namespace BDArmory.Modules
             }
 
             // Calculate threat rating from any threats
+            float minimumEvasionTime = minEvasionTime;
+            threatRating = evasionThreshold + 1f; // Don't evade by default
             if (weaponManager && (weaponManager.missileIsIncoming || weaponManager.isChaffing || weaponManager.isFlaring))
+            {
                 threatRating = 0f; // Allow entering evasion code if we're under missile fire
-            else if (weaponManager.underFire && !ramming)
-                threatRating = weaponManager.incomingMissDistance; // If we're ramming, ignore gunfire.
-            else
-                threatRating = evasionThreshold + 1f; // Don't evade by default
+                minimumEvasionTime = minEvasionTime * 2f + 1f; // Longer minimum evasion time for missiles, so we don't turn into them
+            }
+            else if (weaponManager.underFire && !ramming) // If we're ramming, ignore gunfire.
+            {
+                if (weaponManager.incomingMissTime >= evasionTimeThreshold) // If we haven't been under fire long enough, ignore gunfire
+                    threatRating = weaponManager.incomingMissDistance; 
+            }
 
             debugString.Append($"Threat Rating: {threatRating}");
             debugString.Append(Environment.NewLine);
 
             // If we're currently evading or a threat is significant and we're not ramming.
-            if ((evasiveTimer < minEvasionTime && evasiveTimer != 0) || threatRating < evasionThreshold)
+            if ((evasiveTimer < minimumEvasionTime && evasiveTimer != 0) || threatRating < evasionThreshold)
             {
-                if (evasiveTimer < minEvasionTime)
+                if (evasiveTimer < minimumEvasionTime)
                 {
                     threatRelativePosition = vessel.Velocity().normalized + vesselTransform.right;
 
@@ -850,7 +862,7 @@ namespace BDArmory.Modules
                 evasiveTimer += Time.fixedDeltaTime;
                 turningTimer = 0;
 
-                if (evasiveTimer >= minEvasionTime)
+                if (evasiveTimer >= minimumEvasionTime)
                 {
                     evasiveTimer = 0;
                     collisionDetectionTicker = vesselCollisionAvoidanceTickerFreq + 1; //check for collision again after exiting evasion routine
@@ -1154,7 +1166,7 @@ namespace BDArmory.Modules
             }
         }
 
-        void RegainEnergy(FlightCtrlState s, Vector3 direction)
+        void RegainEnergy(FlightCtrlState s, Vector3 direction, float throttleOverride = -1f)
         {
             debugString.Append($"Regaining energy");
             debugString.Append(Environment.NewLine);
@@ -1167,8 +1179,12 @@ namespace BDArmory.Modules
             Vector3 targetDirection = Vector3.RotateTowards(planarDirection, -upDirection, angle, 0);
             targetDirection = Vector3.RotateTowards(vessel.Velocity(), targetDirection, 15f * Mathf.Deg2Rad, 0).normalized;
 
-            AdjustThrottle(maxSpeed, false);
-            FlyToPosition(s, vesselTransform.position + (targetDirection * 100));
+            if (throttleOverride >= 0)
+                AdjustThrottle(maxSpeed, false, false, throttleOverride);
+            else
+                AdjustThrottle(maxSpeed, false, false);
+
+            FlyToPosition(s, vesselTransform.position + (targetDirection * 100), true);
         }
 
         float GetSteerLimiterForSpeedAndPower()
@@ -1190,7 +1206,7 @@ namespace BDArmory.Modules
         Vector3 debugPos;
         bool useVelRollTarget;
 
-        void FlyToPosition(FlightCtrlState s, Vector3 targetPosition)
+        void FlyToPosition(FlightCtrlState s, Vector3 targetPosition, bool overrideThrottle = false)
         {
             if (!belowMinAltitude) // Includes avoidingTerrain
             {
@@ -1239,7 +1255,11 @@ namespace BDArmory.Modules
             float finalSpeed = Mathf.Min(speedController.targetSpeed, Mathf.Clamp(maxSpeed - (speedReductionFactor * velAngleToTarget), idleSpeed, maxSpeed));
             debugString.Append($"Final Target Speed: {finalSpeed}");
             debugString.Append(Environment.NewLine);
-            AdjustThrottle(finalSpeed, useBrakes, useAB);
+
+            if (!overrideThrottle)
+            {
+                AdjustThrottle(finalSpeed, useBrakes, useAB);
+            }
 
             if (steerMode == SteerModes.Aiming)
             {
@@ -1475,11 +1495,12 @@ namespace BDArmory.Modules
         }
 
         //sends target speed to speedController
-        void AdjustThrottle(float targetSpeed, bool useBrakes, bool allowAfterburner = true)
+        void AdjustThrottle(float targetSpeed, bool useBrakes, bool allowAfterburner = true, float throttleOverride = -1f)
         {
             speedController.targetSpeed = targetSpeed;
             speedController.useBrakes = useBrakes;
             speedController.allowAfterburner = allowAfterburner;
+            speedController.throttleOverride = throttleOverride;
         }
 
         Vector3 threatRelativePosition;
@@ -1495,6 +1516,8 @@ namespace BDArmory.Modules
             debugString.Append(Environment.NewLine);
             debugString.Append($"Threat Distance: {weaponManager.incomingMissileDistance}");
             debugString.Append(Environment.NewLine);
+
+            bool hasABEngines = (speedController.multiModeEngines.Count > 0);
 
             collisionDetectionTicker += 2;
 
@@ -1516,7 +1539,11 @@ namespace BDArmory.Modules
                     Vector3 axis = -Vector3.Cross(vesselTransform.up, threatRelativePosition);
                     Vector3 breakDirection = Quaternion.AngleAxis(90, axis) * threatRelativePosition;
                     //Vector3 breakTarget = vesselTransform.position + breakDirection;
-                    RegainEnergy(s, breakDirection);
+                    
+                    if (hasABEngines)
+                        RegainEnergy(s, breakDirection);
+                    else
+                        RegainEnergy(s, breakDirection, 0.66f);
                     return;
                 }
                 else if ((weaponManager.incomingMissileVessel) && (weaponManager.incomingMissileDistance <= 2000))
@@ -1526,8 +1553,9 @@ namespace BDArmory.Modules
                     {
                         debugString.Append($"Missile about to impact! pull away!");
                         debugString.Append(Environment.NewLine);
-
+                        
                         AdjustThrottle(maxSpeed, false, false);
+
                         Vector3 cross = Vector3.Cross(weaponManager.incomingMissileVessel.transform.position - vesselTransform.position, vessel.Velocity()).normalized;
                         if (Vector3.Dot(cross, -vesselTransform.forward) < 0)
                         {

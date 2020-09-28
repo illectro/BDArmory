@@ -8,7 +8,7 @@ namespace BDArmory.Control
         //[KSPField(isPersistant = false, guiActive = true, guiActiveEditor = false, guiName = "TargetSpeed"),
         //	UI_FloatRange(minValue = 1f, maxValue = 420f, stepIncrement = 1f, scene = UI_Scene.All)]
         public float targetSpeed = 0;
-
+        public float throttleOverride = -1f;
         public bool useBrakes = true;
         public bool allowAfterburner = true;
 
@@ -23,7 +23,7 @@ namespace BDArmory.Control
         //[KSPField(guiActive = true, guiName = "Thrust")]
         public float debugThrust;
 
-        List<MultiModeEngine> multiModeEngines;
+        public List<MultiModeEngine> multiModeEngines;
 
         //[KSPEvent(guiActive = true, guiActiveEditor = false, guiName = "ToggleAC")]
         public void Toggle()
@@ -80,6 +80,11 @@ namespace BDArmory.Control
             float dragAccel = 0;
             float engineAccel = MaxEngineAccel(requestEngineAccel, out dragAccel);
 
+            if (throttleOverride >= 0)
+            {
+                s.mainThrottle = throttleOverride;
+                return;
+            }
             if (engineAccel == 0)
             {
                 s.mainThrottle = accel > 0 ? 1 : 0;

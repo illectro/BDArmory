@@ -874,11 +874,14 @@ namespace BDArmory.Radar
                                 MissileBase missileBase;
                                 if (missileBase = tInfo.MissileBaseModule)
                                 {
+                                    if (missileBase.SourceVessel == myWpnManager.vessel) continue; // ignore missiles we've fired
+                                    
                                     results.foundMissile = true;
                                     results.threatVessel = missileBase.vessel;
                                     Vector3 vectorFromMissile = myWpnManager.vessel.CoM - missileBase.part.transform.position;
                                     Vector3 relV = missileBase.vessel.Velocity() - myWpnManager.vessel.Velocity();
                                     bool approaching = Vector3.Dot(relV, vectorFromMissile) > 0;
+
                                     if (missileBase.HasFired && missileBase.TimeIndex > 1 && approaching && (missileBase.TargetPosition - (myWpnManager.vessel.CoM + (myWpnManager.vessel.Velocity() * Time.fixedDeltaTime))).sqrMagnitude < 3600)
                                     {
                                         if (missileBase.TargetingMode == MissileBase.TargetingModes.Heat)

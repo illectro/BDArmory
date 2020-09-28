@@ -237,6 +237,7 @@ namespace BDArmory.Modules
 
         //heat stuff
         public TargetSignatureData heatTarget;
+        private TargetSignatureData predictedHeatTarget;
 
         //radar stuff
         public VesselRadarData vrd;
@@ -283,7 +284,7 @@ namespace BDArmory.Modules
         {
             return part;
         }
-
+        
         public abstract void FireMissile();
 
         public abstract void Jettison();
@@ -385,30 +386,57 @@ namespace BDArmory.Modules
 
         protected void UpdateHeatTarget()
         {
+
             if (lockFailTimer > 1)
             {
                 legacyTargetVessel = null;
                 TargetAcquired = false;
+                predictedHeatTarget.exists = false;
+                predictedHeatTarget.signalStrength = 0;
                 return;
             }
-
 
             if (heatTarget.exists && lockFailTimer < 0)
             {
                 lockFailTimer = 0;
+                predictedHeatTarget = heatTarget;
             }
             if (lockFailTimer >= 0)
             {
-                Ray lookRay = new Ray(transform.position, heatTarget.position + (heatTarget.velocity * Time.fixedDeltaTime) - transform.position);
-                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, lockedSensorFOV / 2, heatThreshold, allAspect, SourceVessel?.gameObject?.GetComponent<MissileFire>());
+                // Decide where to point seeker
+                Ray lookRay;
+                float targetHeatScore = 0;
+                if (predictedHeatTarget.exists) // We have an active target we've been seeking, or a prior target that went stale
+                {
+                    lookRay = new Ray(transform.position, predictedHeatTarget.position - transform.position);
+                    targetHeatScore = predictedHeatTarget.signalStrength;
+                }
+                else if (heatTarget.exists) // We have a new active target and no prior target
+                {
+                    lookRay = new Ray(transform.position, heatTarget.position + (heatTarget.velocity * Time.fixedDeltaTime) - transform.position);
+                    targetHeatScore = heatTarget.signalStrength;
+                }
+                else // No target, look straight ahead
+                {
+                    lookRay = new Ray(transform.position, vessel.srf_vel_direction);
+                }
+
+                if (BDArmorySettings.DRAW_DEBUG_LINES)
+                    DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, Color.magenta);
+
+                // Update heat target
+                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, targetHeatScore, lockedSensorFOV / 2, heatThreshold, allAspect, SourceVessel?.gameObject?.GetComponent<MissileFire>());
 
                 if (heatTarget.exists)
                 {
                     TargetAcquired = true;
-                    TargetPosition = heatTarget.position + (2 * heatTarget.velocity * Time.fixedDeltaTime);
+                    TargetPosition = heatTarget.position + (2 * heatTarget.velocity * Time.fixedDeltaTime); // Not sure why this is 2*
                     TargetVelocity = heatTarget.velocity;
                     TargetAcceleration = heatTarget.acceleration;
                     lockFailTimer = 0;
+
+                    // Update target information
+                    predictedHeatTarget = heatTarget;
                 }
                 else
                 {
@@ -418,6 +446,17 @@ namespace BDArmory.Modules
                         lockFailTimer += Time.fixedDeltaTime;
                     }
                 }
+
+                // Update predicted values based on target information
+                if (predictedHeatTarget.exists)
+                {
+                    float currentFactor = (1400 * 1400) / Mathf.Clamp((predictedHeatTarget.position - transform.position).sqrMagnitude, 90000, 36000000);
+                    Vector3 currVel = (float)vessel.srfSpeed * vessel.Velocity().normalized;
+                    predictedHeatTarget.position = predictedHeatTarget.position + predictedHeatTarget.velocity * Time.fixedDeltaTime;
+                    float futureFactor = (1400 * 1400) / Mathf.Clamp((predictedHeatTarget.position - (transform.position + (currVel * Time.fixedDeltaTime))).sqrMagnitude, 90000, 36000000);
+                    predictedHeatTarget.signalStrength *= futureFactor / currentFactor;
+                }
+                
             }
         }
 

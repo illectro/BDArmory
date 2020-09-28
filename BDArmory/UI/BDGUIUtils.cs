@@ -141,6 +141,7 @@ namespace BDArmory.UI
 
         public static void UseMouseEventInRect(Rect rect)
         {
+            if (Event.current == null) return;
             if (Misc.Misc.MouseIsInRect(rect) && Event.current.isMouse && (Event.current.type == EventType.MouseDown || Event.current.type == EventType.MouseUp))
             {
                 Event.current.Use();

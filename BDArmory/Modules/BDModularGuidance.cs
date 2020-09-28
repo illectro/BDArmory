@@ -1260,7 +1260,10 @@ namespace BDArmory.Modules
             GUILayout.EndVertical();
 
             GUI.DragWindow();
-            BDGUIUtils.RepositionWindow(ref guiWindowRect);
+			if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
+			{
+				BDGUIUtils.RepositionWindow(ref guiWindowRect);
+			}
         }
 
         private static void InitializeStyles()

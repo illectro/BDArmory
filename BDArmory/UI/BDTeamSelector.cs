@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using BDArmory.Core;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using UnityEngine;
@@ -103,7 +104,10 @@ namespace BDArmory.UI
             }
 
             height += margin;
-            BDGUIUtils.RepositionWindow(ref window);
+            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
+			{
+				BDGUIUtils.RepositionWindow(ref window);
+			}
             BDGUIUtils.UseMouseEventInRect(window);
         }
 

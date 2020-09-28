@@ -179,6 +179,12 @@ namespace BDArmory.Core.Module
                     hitpoints = hitpointMultiplier * part.mass * 333f;
                 }
 
+                // SuicidalInsanity B9 patch
+                if (part.name.Contains("B9.Aero.Wing.Procedural")) 
+                {
+                    hitpoints = (part.mass * 1000f) * 3.5f; // since wings are basically a 2d object, lets have mass be our scalar - afterall, 2x the mass will ~= 2x the surfce area
+                }
+
                 hitpoints = Mathf.Round(hitpoints / HpRounding) * HpRounding;
                 if (hitpoints <= 0) hitpoints = HpRounding;
             }

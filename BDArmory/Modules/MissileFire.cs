@@ -349,6 +349,8 @@ namespace BDArmory.Modules
         public Vessel incomingThreatVessel;
         public MissileFire incomingWeaponManager;
         public float incomingMissDistance;
+        public float incomingMissTime;
+        public Vessel priorThreatVessel = null;
 
         public bool guardFiringMissile;
         bool disabledRocketAimers;
@@ -446,7 +448,24 @@ namespace BDArmory.Modules
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_TargetPriority_TargetThreat", advancedTweakable = true, groupName = "targetPriority", groupDisplayName = "#LOC_BDArmory_TargetPriority_Settings", groupStartCollapsed = true),//Number Friendlies Engaging
          UI_FloatRange(minValue = -10f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_Scene.All)]
         public float targetWeightThreat = 0f;
+        #endregion
 
+        #region Countermeasure Settings
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CMThreshold", advancedTweakable = true, groupName = "cmSettings", groupDisplayName = "#LOC_BDArmory_Countermeasure_Settings", groupStartCollapsed = true),// Countermeasure dispensing repetition
+         UI_FloatRange(minValue = 1f, maxValue = 60f, stepIncrement = 0.5f, scene = UI_Scene.All)]
+        public float cmThreshold = 5f; // Works well
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CMRepetition", advancedTweakable = true, groupName = "cmSettings", groupDisplayName = "#LOC_BDArmory_Countermeasure_Settings", groupStartCollapsed = true),// Countermeasure dispensing repetition
+         UI_FloatRange(minValue = 1f, maxValue = 20f, stepIncrement = 1f, scene = UI_Scene.All)]
+        public float cmRepetition = 5f; // Prior default was 4
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CMInterval", advancedTweakable = true, groupName = "cmSettings", groupDisplayName = "#LOC_BDArmory_Countermeasure_Settings", groupStartCollapsed = true),// Countermeasure dispensing interval
+         UI_FloatRange(minValue = 0.1f, maxValue = 1f, stepIncrement = 0.1f, scene = UI_Scene.All)]
+        public float cmInterval = 0.2f; // Prior default was 0.6
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_CMWaitTime", advancedTweakable = true, groupName = "cmSettings", groupDisplayName = "#LOC_BDArmory_Countermeasure_Settings", groupStartCollapsed = true),// Countermeasure dispensing interval
+         UI_FloatRange(minValue = 0.1f, maxValue = 10f, stepIncrement = 0.1f, scene = UI_Scene.All)]
+        public float cmWaitTime = 1.0f; // Works well
         #endregion
 
         public void ToggleGuardMode()
@@ -1816,7 +1835,11 @@ namespace BDArmory.Modules
 
         public void FireAllCountermeasures(int count)
         {
-            StartCoroutine(AllCMRoutine(count));
+            if (!isChaffing && !isFlaring
+                && ThreatClosingTime(incomingMissileVessel) > cmThreshold)
+            {
+                StartCoroutine(AllCMRoutine(count));
+            }
         }
 
         public void FireECM()
@@ -1829,9 +1852,20 @@ namespace BDArmory.Modules
 
         public void FireChaff()
         {
-            if (!isChaffing)
+            if (!isChaffing
+                && ThreatClosingTime(incomingMissileVessel) <= cmThreshold)
             {
-                StartCoroutine(ChaffRoutine());
+                StartCoroutine(ChaffRoutine((int)cmRepetition, cmInterval));
+            }
+        }
+
+        public void FireFlares()
+        {
+            if (!isFlaring
+                && ThreatClosingTime(incomingMissileVessel) <= cmThreshold)
+            {
+                StartCoroutine(FlareRoutine((int)cmRepetition, cmInterval));
+                StartCoroutine(ResetMissileThreatDistanceRoutine());
             }
         }
 
@@ -1857,33 +1891,37 @@ namespace BDArmory.Modules
                 }
         }
 
-        IEnumerator ChaffRoutine()
+        IEnumerator ChaffRoutine(int repetition, float interval)
         {
             isChaffing = true;
-            yield return new WaitForSeconds(UnityEngine.Random.Range(0.2f, 1f));
-            using (List<CMDropper>.Enumerator cm = vessel.FindPartModulesImplementing<CMDropper>().GetEnumerator())
-                while (cm.MoveNext())
-                {
-                    if (cm.Current == null) continue;
-                    if (cm.Current.cmType == CMDropper.CountermeasureTypes.Chaff)
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Starting chaff routine");
+            // yield return new WaitForSeconds(0.2f); // Reaction time delay
+            for (int i = 0; i < repetition; i++)
+            {
+
+                using (List<CMDropper>.Enumerator cm = vessel.FindPartModulesImplementing<CMDropper>().GetEnumerator())
+                    while (cm.MoveNext())
                     {
-                        cm.Current.DropCM();
+                        if (cm.Current == null) continue;
+                        if (cm.Current.cmType == CMDropper.CountermeasureTypes.Chaff)
+                        {
+                            cm.Current.DropCM();
+                        }
                     }
-                }
 
-            yield return new WaitForSeconds(0.6f);
-
+                yield return new WaitForSeconds(interval);
+            }
+            yield return new WaitForSeconds(cmWaitTime);
             isChaffing = false;
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Ending chaff routine");
         }
 
-        IEnumerator FlareRoutine(float time)
+        IEnumerator FlareRoutine(int repetition, float interval)
         {
-            if (isFlaring) yield break;
-            time = Mathf.Clamp(time, 2, 8);
             isFlaring = true;
-            yield return new WaitForSeconds(UnityEngine.Random.Range(0f, 1f));
-            float flareStartTime = Time.time;
-            while (Time.time - flareStartTime < time)
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Starting flare routine");
+            // yield return new WaitForSeconds(0.2f); // Reaction time delay
+            for (int i = 0; i < repetition; i++)
             {
                 using (List<CMDropper>.Enumerator cm = vessel.FindPartModulesImplementing<CMDropper>().GetEnumerator())
                     while (cm.MoveNext())
@@ -1894,32 +1932,37 @@ namespace BDArmory.Modules
                             cm.Current.DropCM();
                         }
                     }
-                yield return new WaitForSeconds(0.6f);
+                yield return new WaitForSeconds(interval);
             }
+            yield return new WaitForSeconds(cmWaitTime);
             isFlaring = false;
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Ending flare routine");
         }
 
         IEnumerator AllCMRoutine(int count)
         {
+            // Use this routine for missile threats that are outside of the cmThreshold
+            isFlaring = true;
+            isChaffing = true;
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Starting All CM routine");
             for (int i = 0; i < count; i++)
             {
                 using (List<CMDropper>.Enumerator cm = vessel.FindPartModulesImplementing<CMDropper>().GetEnumerator())
                     while (cm.MoveNext())
                     {
                         if (cm.Current == null) continue;
-                        if ((cm.Current.cmType == CMDropper.CountermeasureTypes.Flare && !isFlaring)
-                            || (cm.Current.cmType == CMDropper.CountermeasureTypes.Chaff && !isChaffing)
+                        if ((cm.Current.cmType == CMDropper.CountermeasureTypes.Flare)
+                            || (cm.Current.cmType == CMDropper.CountermeasureTypes.Chaff)
                             || (cm.Current.cmType == CMDropper.CountermeasureTypes.Smoke))
                         {
                             cm.Current.DropCM();
                         }
                     }
-                isFlaring = true;
-                isChaffing = true;
                 yield return new WaitForSeconds(1f);
             }
             isFlaring = false;
             isChaffing = false;
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDArmory]: Ending All CM routine");
         }
 
         IEnumerator LegacyCMRoutine()
@@ -2986,7 +3029,7 @@ namespace BDArmory.Modules
             if (!vessel.LandedOrSplashed && !targetMissiles)
             {
                 TargetInfo potentialAirTarget = null;
-                
+
                 if (BDArmorySettings.DEFAULT_FFA_TARGETING)
                 {
                     potentialAirTarget = BDATargetManager.GetClosestTargetWithBiasAndHysteresis(this);
@@ -3219,6 +3262,14 @@ namespace BDArmory.Modules
         // Update target priority UI
         public void UpdateTargetPriorityUI(TargetInfo target)
         {
+            // Return if no target
+            if (target == null)
+            {
+                TargetScoreLabel = "";
+                TargetLabel = "";
+                return;
+            }
+
             // Get UI fields
             var TargetBiasFields = Fields["targetBias"];
             var TargetRangeFields = Fields["targetWeightRange"];
@@ -3667,7 +3718,20 @@ namespace BDArmory.Modules
             {
                 if (BDArmorySettings.DRAW_DEBUG_LABELS)
                 {
-                    Debug.Log("[BDArmory] : " + vessel.vesselName + " - No weapon selected.");
+                    Debug.Log("[BDArmory] : " + vessel.vesselName + " - No weapon selected for target " + target.Vessel.vesselName);
+                    // Debug.Log("DEBUG target isflying:" + target.isFlying + ", isLorS:" + target.isLandedOrSurfaceSplashed + ", isUW:" + target.isUnderwater);
+                    // if (target.isFlying)
+                    //     foreach (var weapon in weaponTypesAir)
+                    //     {
+                    //         var engageableWeapon = weapon as EngageableWeapon;
+                    //         Debug.Log("DEBUG flying target:" + target.Vessel + ", weapon:" + weapon + " can engage:" + CheckEngagementEnvelope(weapon, distance) + ", engageEnabled:" + engageableWeapon.engageEnabled + ", min/max:" + engageableWeapon.GetEngagementRangeMin() + "/" + engageableWeapon.GetEngagementRangeMax());
+                    //     }
+                    // if (target.isLandedOrSurfaceSplashed)
+                    //     foreach (var weapon in weaponTypesAir)
+                    //     {
+                    //         var engageableWeapon = weapon as EngageableWeapon;
+                    //         Debug.Log("DEBUG landed target:" + target.Vessel + ", weapon:" + weapon + " can engage:" + CheckEngagementEnvelope(weapon, distance) + ", engageEnabled:" + engageableWeapon.engageEnabled + ", min/max:" + engageableWeapon.GetEngagementRangeMin() + "/" + engageableWeapon.GetEngagementRangeMax());
+                    //     }
                 }
 
                 selectedWeapon = null;
@@ -3739,7 +3803,7 @@ namespace BDArmory.Modules
                         }
                         if (BDArmorySettings.DRAW_DEBUG_LABELS)
                         {
-                            Debug.Log("[BDArmory] : " + vessel.vesselName + " - Failed DLZ test: " + weaponCandidate.GetShortName());
+                            Debug.Log("[BDArmory] : " + vessel.vesselName + " - Failed DLZ test: " + weaponCandidate.GetShortName() + ", distance: " + distanceToTarget + ", DLZ min/max: " + dlz.minLaunchRange + "/" + dlz.maxLaunchRange);
                         }
                         break;
                     }
@@ -3933,7 +3997,7 @@ namespace BDArmory.Modules
                     heatTarget.predictedPosition - CurrentMissile.MissileReferenceTransform.position
                     : CurrentMissile.GetForwardTransform();
 
-                heatTarget = BDATargetManager.GetHeatTarget(vessel, vessel, new Ray(CurrentMissile.MissileReferenceTransform.position + (50 * CurrentMissile.GetForwardTransform()), direction), scanRadius, CurrentMissile.heatThreshold, CurrentMissile.allAspect, this);
+                heatTarget = BDATargetManager.GetHeatTarget(vessel, vessel, new Ray(CurrentMissile.MissileReferenceTransform.position + (50 * CurrentMissile.GetForwardTransform()), direction), 0f, scanRadius, CurrentMissile.heatThreshold, CurrentMissile.allAspect, this);
             }
         }
 
@@ -4041,7 +4105,7 @@ namespace BDArmory.Modules
             {
                 if (!isLegacyCMing)
                 {
-                    StartCoroutine(LegacyCMRoutine());
+                    // StartCoroutine(LegacyCMRoutine()); // Depreciated
                 }
 
                 targetScanTimer -= Time.fixedDeltaTime; //advance scan timing (increased urgency)
@@ -4155,11 +4219,8 @@ namespace BDArmory.Modules
             {
                 StartCoroutine(UnderAttackRoutine());
 
-                if (!isFlaring)
-                {
-                    StartCoroutine(FlareRoutine(2.5f));
-                    StartCoroutine(ResetMissileThreatDistanceRoutine());
-                }
+                FireFlares();
+
                 incomingThreatPosition = results.threatPosition;
                 incomingThreatVessel = results.threatVessel;
 
@@ -4220,6 +4281,15 @@ namespace BDArmory.Modules
                     StopCoroutine(ufRoutine);
                     underFire = false;
                 }
+                if (priorThreatVessel == incomingThreatVessel)
+                {
+                    incomingMissTime += Time.fixedDeltaTime;
+                }
+                else
+                {
+                    priorThreatVessel = incomingThreatVessel;
+                    incomingMissTime = 0f;
+                }
                 if (results.threatWeaponManager != null)
                 {
                     incomingWeaponManager = results.threatWeaponManager;
@@ -4254,6 +4324,8 @@ namespace BDArmory.Modules
                 }
                 ufRoutine = StartCoroutine(UnderFireRoutine());
             }
+            else
+                incomingMissTime = 0f; // Reset incoming fire time
         }
 
         public void ForceScan()
@@ -4309,6 +4381,19 @@ namespace BDArmory.Modules
         {
             UI_FloatRange rangeEditor = (UI_FloatRange)Fields["guardRange"].uiControlEditor;
             rangeEditor.maxValue = BDArmorySettings.MAX_GUARD_VISUAL_RANGE;
+        }
+
+        float ThreatClosingTime(Vessel threat)
+        {
+            float closureTime = 3600f; // Default closure time of one hour
+            if (threat) // If we weren't passed a null
+            {
+                float targetDistance = Vector3.Distance(threat.transform.position, vessel.transform.position);
+                Vector3 currVel = (float)vessel.srfSpeed * vessel.Velocity().normalized;
+                closureTime = Mathf.Clamp((float)(1 / ((threat.Velocity() - currVel).magnitude / targetDistance)), 0f, closureTime);
+                // Debug.Log("[BDThreat]: Threat from " + threat.GetDisplayName() + " is " + closureTime.ToString("0.0") + " seconds away!");
+            }
+            return closureTime;
         }
 
         // moved from pilot AI, as it does not really do anything AI related?

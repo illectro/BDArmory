@@ -306,10 +306,10 @@ namespace BDArmory.Core.Extension
         {
             var size = part.GetComponentInChildren<MeshFilter>().mesh.bounds.size;
 
-            if (part.name.Contains("B9.Aero.Wing.Procedural"))
-            {
-                size = size * 0.1f;
-            }
+            // if (part.name.Contains("B9.Aero.Wing.Procedural")) // Covered by SuicidalInsanity's patch.
+            // {
+            //     size = size * 0.1f;
+            // }
 
             float scaleMultiplier = 1f;
             if (part.Modules.Contains("TweakScale"))
