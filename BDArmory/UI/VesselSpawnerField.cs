@@ -35,6 +35,7 @@ namespace BDArmory.UI
             new SpawnLocation("Bowl 1", new Vector2d(35.6559, -77.4941)),
             new SpawnLocation("Bowl 2", new Vector2d(3.8744, -78.0039)),
             new SpawnLocation("Bowl 3", new Vector2d(0.268284, -80.5195)),
+            new SpawnLocation("Pyramids", new Vector2d(-6.4743, -141.662)),
         };
 
         public static void Save()

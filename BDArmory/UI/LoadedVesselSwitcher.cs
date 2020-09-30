@@ -896,7 +896,7 @@ namespace BDArmory.UI
                                     {
                                         var currentParts = v.Current.parts.Count;
                                         var vdat = BDACompetitionMode.Instance.Scores[vesselName];
-                                        if (currentParts < vdat.previousPartCount)
+                                        if (Planetarium.GetUniversalTime() - vdat.lastLostPartTime < 5d) // Lost parts within the last 5s.
                                         {
                                             recentlyDamaged = true;
                                         }
@@ -998,6 +998,7 @@ namespace BDArmory.UI
                         // the active vessel is no longer in our list, so it probably just got shot
                         // we need to make sure we follow it for a few seconds
                         lastCameraSwitch = Planetarium.GetUniversalTime();
+                        timeSinceChange = 0;
                         lostActiveVessel = true;
                     }
                     else
