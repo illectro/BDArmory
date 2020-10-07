@@ -5,8 +5,10 @@ using BDArmory.Core.Extension;
 using BDArmory.Guidances;
 using BDArmory.Misc;
 using BDArmory.Radar;
+using BDArmory.Targeting;
 using BDArmory.UI;
 using KSP.UI.Screens;
+using SaveUpgradePipeline;
 using UniLinq;
 using UnityEngine;
 
@@ -623,6 +625,14 @@ namespace BDArmory.Modules
 
             if (MissileState != MissileStates.PostThrust) return;
 
+            var pilotAI = vessel.FindPartModuleImplementing<BDModulePilotAI>(); // Get the pilot AI if the  missile has one.
+            if (pilotAI != null)
+            {
+                ResetMissile();
+                pilotAI.ActivatePilot();
+                return;
+            }
+
             Debug.Log("[BDArmory]: Missile CheckMiss showed miss");
             HasMissed = true;
             guidanceActive = false;
@@ -631,13 +641,38 @@ namespace BDArmory.Modules
             detonationTime = TimeIndex + 1.5f;
         }
 
+        private void ResetMissile()
+        {
+            heatTarget = TargetSignatureData.noTarget;
+            vrd = null;
+            radarTarget = TargetSignatureData.noTarget;
+            HasFired = false;
+            StagesNumber = 1;
+            _nextStage = 1;
+            TargetAcquired = false;
+            TargetMf = null;
+            TimeFired = -1;
+            _missileIgnited = false;
+            lockFailTimer = -1;
+            guidanceActive = false;
+            BDATargetManager.FiredMissiles.Remove(this);
+            MissileState = MissileStates.Idle;
+        }
+
         private void CheckMiss()
         {
             if (HasMissed) return;
 
-
             if (MissileState == MissileStates.PostThrust && (vessel.LandedOrSplashed || vessel.Velocity().magnitude < 10f))
             {
+                var pilotAI = vessel.FindPartModuleImplementing<BDModulePilotAI>(); // Get the pilot AI if the  missile has one.
+                if (pilotAI != null)
+                {
+                    ResetMissile();
+                    pilotAI.ActivatePilot();
+                    return;
+                }
+
                 Debug.Log("[BDArmory]: Missile CheckMiss showed miss");
                 HasMissed = true;
                 guidanceActive = false;
@@ -875,6 +910,7 @@ namespace BDArmory.Modules
                 }
 
                 TimeFired = Time.time;
+                guidanceActive = true;
                 MissileState = MissileStates.Drop;
 
                 Misc.Misc.RefreshAssociatedWindows(part);
@@ -1260,10 +1296,10 @@ namespace BDArmory.Modules
             GUILayout.EndVertical();
 
             GUI.DragWindow();
-			if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
-			{
-				BDGUIUtils.RepositionWindow(ref guiWindowRect);
-			}
+            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
+            {
+                BDGUIUtils.RepositionWindow(ref guiWindowRect);
+            }
         }
 
         private static void InitializeStyles()

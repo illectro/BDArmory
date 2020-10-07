@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Reflection;
 using BDArmory.Core;
-using BDArmory.UI;
+using BDArmory.Control;
 using UniLinq;
 using UnityEngine;
 
-namespace BDArmory.UI
+namespace BDArmory.Control
 {
     public class SpawnLocation
     {

@@ -145,7 +145,10 @@ namespace BDArmory.Core.Extension
                 Debug.Log("[BDArmory]: Ballistic Hitpoints Applied : " + Math.Round(damage_, 2));
             }
 
-            //CheckDamageFX(p);
+            if (BDArmorySettings.BATTLEDAMAGE && !BDArmorySettings.PAINTBALL_MODE)
+		{
+			CheckDamageFX(p, caliber);
+		}
         }
 
         /// <summary>
@@ -161,7 +164,10 @@ namespace BDArmory.Core.Extension
             if (BDArmorySettings.DRAW_DEBUG_LABELS)
                 Debug.Log("[BDArmory]: Explosive Hitpoints Applied to " + p.name + ": " + Math.Round(damage, 2));
 
-            //CheckDamageFX(p);
+            if (BDArmorySettings.BATTLEDAMAGE && !BDArmorySettings.PAINTBALL_MODE)
+		{
+			CheckDamageFX(p, 50);
+		}
         }
 
         /// <summary>
@@ -424,19 +430,90 @@ namespace BDArmory.Core.Extension
             return damage;
         }
 
-        public static void CheckDamageFX(Part part)
-        {
-            if (part.GetComponent<ModuleEngines>() != null && part.GetDamagePercentatge() <= 0.35f)
-            {
-                part.gameObject.AddOrGetComponent<DamageFX>();
-                DamageFX.engineDamaged = true;
-            }
+        public static void CheckDamageFX(Part part, float caliber)
+		{
+			//what can get damaged? engines, wings, SAS, cockpits (past a certain dmg%, kill kerbals?), weapons(would be far easier to just have these have low hp), radars
 
-            if (part.GetComponent<ModuleLiftingSurface>() != null && part.GetDamagePercentatge() <= 0.35f)
+            if ((part.GetComponent<ModuleEngines>() != null || part.GetComponent<ModuleEnginesFX>() != null) && part.GetDamagePercentatge() < 0.95f) //first hit's free
+			{
+				ModuleEngines engine;
+				engine = part.GetComponent<ModuleEngines>();
+				if (part.GetDamagePercentatge() >= 0.50f)
+				{
+					if (engine.thrustPercentage > 0)
+					{
+						//engine.maxThrust -= ((engine.maxThrust * 0.125f) / 100); // doesn't seem to adjust thrust; investigate
+						engine.thrustPercentage -= ((engine.maxThrust * 0.125f) / 100); //workaround hack
+						Mathf.Clamp(engine.thrustPercentage, 0, 1);
+					}
+				}
+				if (part.GetDamagePercentatge() < 0.50f)
+				{
+					if (engine.EngineIgnited)
+					{
+						engine.PlayFlameoutFX(true);
+						engine.Shutdown(); //kill a badly damaged engine and don't allow restart
+						engine.allowRestart = false;
+					}
+				}
+			}
+			if (part.GetComponent<ModuleLiftingSurface>() != null && part.GetDamagePercentatge() > 0.125f) //ensure wings can still generate some lift
+			{
+				ModuleLiftingSurface wing;
+				wing = part.GetComponent<ModuleLiftingSurface>();
+				if (wing.deflectionLiftCoeff > (caliber * caliber / 20000))//2x4m wing board = 2 Lift, 0.25 Lift/m2. 20mm round = 20*20=400/20000= 0.02 Lift reduced per hit
+				{
+					wing.deflectionLiftCoeff -= (caliber * caliber / 20000); //.50 would be .008 Lift, and 30mm would be .045 Lift per hit
+				}
+			}
+			if (part.GetComponent<ModuleControlSurface>() != null && part.GetDamagePercentatge() > 0.125f)
+			{
+				ModuleControlSurface aileron;
+				aileron = part.GetComponent<ModuleControlSurface>();
+				aileron.deflectionLiftCoeff -= (caliber * caliber / 20000);
+				if (part.GetDamagePercentatge() < 0.75f)
+				{
+					if (aileron.ctrlSurfaceRange >= 0.5)
+					{
+						aileron.ctrlSurfaceRange -= 0.5f;
+					}
+				}
+			}
+			if (part.GetComponent<ModuleReactionWheel>() != null && part.GetDamagePercentatge() < 0.75f)
             {
-                //part.gameObject.AddOrGetComponent<DamageFX>();
-            }
-        }
+				ModuleReactionWheel SAS;
+				SAS = part.GetComponent<ModuleReactionWheel>();
+				if (SAS.PitchTorque > 1)
+				{
+					SAS.PitchTorque -= (1 - part.GetDamagePercentatge());
+				}
+				if (SAS.YawTorque > 1)
+				{
+					SAS.YawTorque -= (1 - part.GetDamagePercentatge());
+				}
+				if (SAS.RollTorque > 1)
+				{
+					SAS.RollTorque -= (1 - part.GetDamagePercentatge());
+				}
+			}
+			if (part.protoModuleCrew.Count > 0 && part.GetDamagePercentatge() < 0.50f) //really, the way to go would be via PooledBullet and have it check when calculating penetration depth
+			{                                                                          //if A) the bullet goes through, and B) part's kerballed
+				ProtoCrewMember crewMember = part.protoModuleCrew.FirstOrDefault(x => x != null);
+				if (crewMember != null)
+				{
+					crewMember.UnregisterExperienceTraits(part);
+					crewMember.Die();
+					part.RemoveCrewmember(crewMember); // sadly, I wasn't able to get the K.I.A. portrait working
+					//Vessel.CrewWasModified(part.vessel);
+					Debug.Log(crewMember.name + " was killed by damage to cabin!");
+					if (HighLogic.CurrentGame.Parameters.Difficulty.MissingCrewsRespawn)
+					{
+						crewMember.StartRespawnPeriod();
+					}
+					//ScreenMessages.PostScreenMessage(crewMember.name + " killed by damage to " + part.vessel.name + part.partName + ".", 5.0f, ScreenMessageStyle.UPPER_LEFT);
+				}
+			}
+		}
 
         public static Vector3 GetBoundsSize(Part part)
         {

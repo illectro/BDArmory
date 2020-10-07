@@ -1898,7 +1898,6 @@ namespace BDArmory.Modules
             // yield return new WaitForSeconds(0.2f); // Reaction time delay
             for (int i = 0; i < repetition; i++)
             {
-
                 using (List<CMDropper>.Enumerator cm = vessel.FindPartModulesImplementing<CMDropper>().GetEnumerator())
                     while (cm.MoveNext())
                     {
@@ -2769,7 +2768,7 @@ namespace BDArmory.Modules
                         MissileLauncher launcher = ml.Current as MissileLauncher;
                         if (launcher != null)
                         {
-                            if (launcher.part.name != weaponArray[weaponIndex]?.GetPart()?.name) continue;
+                            if (launcher.part?.name != weaponArray[weaponIndex]?.GetPart()?.name) continue;
                         }
                         else
                         {

@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BDArmory.Core;
+using BDArmory.Control;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using BDArmory.Competition;
@@ -144,7 +145,7 @@ namespace BDArmory.Control
         #region Flags and variables
         // Score tracking flags and variables.
         public Dictionary<string, ScoringData> Scores = new Dictionary<string, ScoringData>();
-        public Dictionary<string, int> DeathOrder = new Dictionary<string, int>();
+        public Dictionary<string, Tuple<int, double>> DeathOrder = new Dictionary<string, Tuple<int, double>>();
         public Dictionary<string, string> whoCleanShotWho = new Dictionary<string, string>();
         public Dictionary<string, string> whoCleanShotWhoWithMissiles = new Dictionary<string, string>();
         public Dictionary<string, string> whoCleanRammedWho = new Dictionary<string, string>();
@@ -1643,7 +1644,7 @@ namespace BDArmory.Control
                     if (!DeathOrder.ContainsKey(key))
                     {
                         // adding pilot into death order
-                        DeathOrder[key] = DeathOrder.Count;
+                        DeathOrder[key] = new Tuple<int, double>(DeathOrder.Count, Planetarium.GetUniversalTime() - competitionStartTime);
                         pilotActions[key] = " is Dead";
                         var whoKilledMe = "";
 
@@ -1784,7 +1785,7 @@ namespace BDArmory.Control
                 gravityMultiplier += VesselSpawner.Instance.vesselsSpawningContinuously ? Mathf.Sqrt(5f - 5f * Mathf.Cos((float)time / 600f * Mathf.PI)) : Mathf.Sqrt((float)time / 60f); // Plus up to 3.16G.
                 PhysicsGlobals.GraviticForceMultiplier = (double)gravityMultiplier;
                 VehiclePhysics.Gravity.Refresh();
-                if (Mathf.RoundToInt(10 * gravityMultiplier) - Mathf.RoundToInt(10 * lastGravityMultiplier) != 0) // Only write a message when it shows something different.
+                if (Mathf.RoundToInt(10 * gravityMultiplier) != Mathf.RoundToInt(10 * lastGravityMultiplier)) // Only write a message when it shows something different.
                 {
                     lastGravityMultiplier = gravityMultiplier;
                     competitionStatus.Add("Competition: Adjusting gravity to " + gravityMultiplier.ToString("0.0") + "G!");
@@ -1869,7 +1870,7 @@ namespace BDArmory.Control
             {
                 if (!alive.Contains(key))
                     if (DeathOrder.ContainsKey(key))
-                        logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: DEAD:" + DeathOrder[key] + ":" + key);
+                        logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: DEAD:" + DeathOrder[key].Item1 + ":" + DeathOrder[key].Item2.ToString("0.0") + ":" + key); // DEAD: <death order>:<death time>:<vessel name>
                     else
                         logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: MIA:" + key);
             }

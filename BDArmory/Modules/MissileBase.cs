@@ -284,7 +284,7 @@ namespace BDArmory.Modules
         {
             return part;
         }
-        
+
         public abstract void FireMissile();
 
         public abstract void Jettison();
@@ -456,7 +456,7 @@ namespace BDArmory.Modules
                     float futureFactor = (1400 * 1400) / Mathf.Clamp((predictedHeatTarget.position - (transform.position + (currVel * Time.fixedDeltaTime))).sqrMagnitude, 90000, 36000000);
                     predictedHeatTarget.signalStrength *= futureFactor / currentFactor;
                 }
-                
+
             }
         }
 
@@ -922,7 +922,6 @@ namespace BDArmory.Modules
             {
                 case DetonationDistanceStates.NotSafe:
                     //Lets check if we are at a safe distance from the source vessel
-
                     using (var hitsEnu = Physics.OverlapSphere(futureMissilePosition, GetBlastRadius() * 3f, 557057).AsEnumerable().GetEnumerator())
                     {
                         while (hitsEnu.MoveNext())
@@ -932,7 +931,7 @@ namespace BDArmory.Modules
                             {
                                 Part partHit = hitsEnu.Current.GetComponentInParent<Part>();
 
-                                if (partHit?.vessel == SourceVessel)
+                                if (partHit?.vessel != vessel && partHit?.vessel == SourceVessel) // Not ourselves, but the source vessel.
                                 {
                                     //We found a hit to the vessel
                                     return;
@@ -951,7 +950,6 @@ namespace BDArmory.Modules
                     break;
 
                 case DetonationDistanceStates.Cruising:
-
                     if (Vector3.Distance(futureMissilePosition, futureTargetPosition) < GetBlastRadius() * 10)
                     {
                         //We are now close enough to start checking the detonation distance
@@ -970,7 +968,6 @@ namespace BDArmory.Modules
                     break;
 
                 case DetonationDistanceStates.CheckingProximity:
-
                     if (DetonationDistance == 0)
                     {
                         if (weaponClass == WeaponClasses.Bomb) return;
@@ -1015,7 +1012,6 @@ namespace BDArmory.Modules
                     else
                     {
                         float optimalDistance = (float)(Math.Max(DetonationDistance, relativeSpeed));
-
                         using (var hitsEnu = Physics.OverlapSphere(vessel.CoM, optimalDistance, 557057).AsEnumerable().GetEnumerator())
                         {
                             while (hitsEnu.MoveNext())

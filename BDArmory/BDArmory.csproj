@@ -233,8 +233,9 @@
     <Compile Include="Control\BDACompetitionMode.cs" />
     <Compile Include="UI\IBDWMModule.cs" />
     <Compile Include="UI\KrakensbaneDebug.cs" />
-    <Compile Include="UI\VesselSpawner.cs" />
-    <Compile Include="UI\VesselSpawnerField.cs" />
+    <Compile Include="Control\VesselSpawner.cs" />
+    <Compile Include="Control\VesselSpawnerField.cs" />
+    <Compile Include="UI\VesselSpawnerWindow.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BDArmory.Core\BDArmory.Core.csproj">
