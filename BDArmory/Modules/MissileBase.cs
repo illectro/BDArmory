@@ -5,6 +5,7 @@ using System.Text;
 using BDArmory.Core;
 using BDArmory.Core.Extension;
 using BDArmory.CounterMeasure;
+using BDArmory.Control;
 using BDArmory.FX;
 using BDArmory.Guidances;
 using BDArmory.Misc;
@@ -60,6 +61,10 @@ namespace BDArmory.Modules
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_DetonationDistanceOverride"), UI_FloatRange(minValue = 0f, maxValue = 100f, stepIncrement = 1f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Detonation distance override
         public float DetonationDistance = -1;
+
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_DetonateAtMinimumDistance"), // Detonate At Minumum Distance
+            UI_Toggle(disabledText = "#LOC_BDArmory_false", enabledText = "#LOC_BDArmory_true", scene = UI_Scene.All, affectSymCounterparts = UI_Scene.All)]
+        public bool DetonateAtMinimumDistance = false;
 
         //[KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "SLW Offset"), UI_FloatRange(minValue = -1000f, maxValue = 0f, stepIncrement = 100f, affectSymCounterparts = UI_Scene.All)]
         public float SLWOffset = 0;
@@ -945,7 +950,6 @@ namespace BDArmory.Modules
                     }
 
                     //We are safe and we can continue with the cruising phase
-
                     DetonationDistanceState = DetonationDistanceStates.Cruising;
                     break;
 
@@ -1023,10 +1027,18 @@ namespace BDArmory.Modules
                                     Part partHit = hitsEnu.Current.GetComponentInParent<Part>();
 
                                     if (partHit?.vessel == vessel || partHit?.vessel == SourceVessel) continue;
+                                    if (partHit?.vessel.vesselType == VesselType.Debris) continue; // Ignore debris
 
                                     Debug.Log("[BDArmory]: Missile proximity sphere hit | Distance overlap = " + optimalDistance + "| Part name = " + partHit.name);
 
                                     //We found a hit a different vessel than ours
+                                    if (DetonateAtMinimumDistance)
+                                    {
+                                        var distance = Vector3.Distance(partHit.transform.position, vessel.CoM);
+                                        var predictedDistance = Vector3.Distance(AIUtils.PredictPosition(partHit.transform.position, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.deltaTime), AIUtils.PredictPosition(vessel, Time.deltaTime));
+                                        if (distance > predictedDistance && distance > Time.fixedDeltaTime * (float)vessel.srfSpeed) // If we're closing and not going to hit within the next update, then wait.
+                                            return;
+                                    }
                                     DetonationDistanceState = DetonationDistanceStates.Detonate;
                                     return;
                                 }

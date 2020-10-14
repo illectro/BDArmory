@@ -1,4 +1,5 @@
 using UnityEngine;
+using BDArmory.Core;
 using Random = UnityEngine.Random;
 
 namespace BDArmory.UI
@@ -160,16 +161,28 @@ namespace BDArmory.UI
 
         internal static void RepositionWindow(ref Rect windowPosition)
         {
-            // This method uses Gui point system.
-            if (windowPosition.x < 0) windowPosition.x = 0;
-            if (windowPosition.y < 0) windowPosition.y = 0;
+            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
+            {
+                // This method uses Gui point system.
+                if (windowPosition.x < 0) windowPosition.x = 0;
+                if (windowPosition.y < 0) windowPosition.y = 0;
 
-            if (windowPosition.xMax > Screen.width) // Don't go off the right of the screen.
-                windowPosition.x = Screen.width - windowPosition.width;
-            if (windowPosition.height > Screen.height) // Don't go off the top of the screen.
-                windowPosition.y = 0;
-            else if (windowPosition.yMax > Screen.height) // Don't go off the bottom of the screen.
-                windowPosition.y = Screen.height - windowPosition.height;
+                if (windowPosition.xMax > Screen.width) // Don't go off the right of the screen.
+                    windowPosition.x = Screen.width - windowPosition.width;
+                if (windowPosition.height > Screen.height) // Don't go off the top of the screen.
+                    windowPosition.y = 0;
+                else if (windowPosition.yMax > Screen.height) // Don't go off the bottom of the screen.
+                    windowPosition.y = Screen.height - windowPosition.height;
+            }
+            else // If the window is completely off-screen, bring it just onto the screen.
+            {
+                if (windowPosition.width == 0) windowPosition.width = 1;
+                if (windowPosition.height == 0) windowPosition.height = 1;
+                if (windowPosition.x >= Screen.width) windowPosition.x = Screen.width - 1;
+                if (windowPosition.y >= Screen.height) windowPosition.y = Screen.height - 1;
+                if (windowPosition.x + windowPosition.width < 1) windowPosition.x = 1 - windowPosition.width;
+                if (windowPosition.y + windowPosition.height < 1) windowPosition.y = 1 - windowPosition.height;
+            }
         }
 
         internal static Rect GuiToScreenRect(Rect rect)

@@ -1,6 +1,7 @@
 using BDArmory.Core;
 using BDArmory.Core.Extension;
 using BDArmory.Core.Utils;
+using BDArmory.Control;
 using BDArmory.FX;
 using KSP.Localization;
 using System.Collections.Generic;
@@ -24,6 +25,8 @@ namespace BDArmory.Modules
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "#LOC_BDArmory_ProximityFuzeRadius"), UI_FloatRange(minValue = 0f, maxValue = 100f, stepIncrement = 1f, scene = UI_Scene.Editor, affectSymCounterparts = UI_Scene.All)]//Proximity Fuze Radius
         public float detonationRange = -1f; // give ability to set proximity range
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_DetonateAtMinimumDistance"), UI_Toggle(disabledText = "#LOC_BDArmory_false", enabledText = "#LOC_BDArmory_true", scene = UI_Scene.All, affectSymCounterparts = UI_Scene.All)] // Detonate At Minumum Distance
+        public bool detonateAtMinimumDistance = false;
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "#LOC_BDArmory_Status")]//Status
         public string guiStatusString = "ARMED";
@@ -124,7 +127,7 @@ namespace BDArmory.Modules
 
         private double previousMass = -1;
 
-        bool hasDetonated;
+        public bool hasDetonated;
 
         public override void OnStart(StartState state)
         {
@@ -209,6 +212,15 @@ namespace BDArmory.Modules
             {
                 OnUpdateEditor();
             }
+            if (hasDetonated)
+            {
+                this.part.explode();
+            }
+        }
+
+        public override void OnFixedUpdate()
+        {
+            base.OnFixedUpdate();
             if (HighLogic.LoadedSceneIsFlight)
             {
                 if (!isMissile)
@@ -241,10 +253,6 @@ namespace BDArmory.Modules
                     }
                 }
             }
-            if (hasDetonated)
-            {
-                this.part.explode();
-            }
         }
 
         private void GetTeamID()
@@ -273,7 +281,7 @@ namespace BDArmory.Modules
 
         public void DetonateIfPossible()
         {
-            if (!hasDetonated && Armed && !manualOverride)
+            if (!hasDetonated && Armed)
             {
                 Vector3 direction = default(Vector3);
 
@@ -283,6 +291,7 @@ namespace BDArmory.Modules
                 }
                 ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, part, null, direction);
                 hasDetonated = true;
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDExplosivePart]: " + part + " (" + (uint)(part.GetInstanceID()) + ") from " + sourcevessel?.vesselName + " detonating.");
             }
         }
 
@@ -290,6 +299,7 @@ namespace BDArmory.Modules
         {
             if (!hasDetonated && Armed)
             {
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[BDExplosivePart]: " + part + " (" + (uint)(part.GetInstanceID()) + ") from " + sourcevessel?.vesselName + " detonating.");
                 ExplosionFx.CreateExplosion(part.transform.position, tntMass, explModelPath, explSoundPath, ExplosionSourceType.Missile, 0, part);
                 hasDetonated = true;
                 part.Destroy();
@@ -326,19 +336,23 @@ namespace BDArmory.Modules
                 {
                     if (hitsEnu.Current == null) continue;
 
-                    try
+                    Part partHit = hitsEnu.Current.GetComponentInParent<Part>();
+                    if (partHit == null || partHit.vessel == null) continue;
+                    if (partHit?.vessel == vessel || partHit?.vessel == sourcevessel) continue;
+                    if (partHit?.vessel.vesselType == VesselType.Debris) continue;
+                    if (sourcevessel != null && partHit.vessel.vesselName.Contains(sourcevessel.vesselName)) continue;
+                    if (IFF_On && partHit.vessel.FindPartModuleImplementing<MissileFire>()?.teamString == IFFID) continue;
+                    if (detonateAtMinimumDistance)
                     {
-                        Part partHit = hitsEnu.Current.GetComponentInParent<Part>();
-                        if (partHit?.vessel == vessel || partHit?.vessel == sourcevessel) continue;
-                        if (partHit?.vessel.vesselType == VesselType.Debris) continue;
-                        if (partHit.vessel.vesselName.Contains(sourcevessel.vesselName)) continue;
-                        if (IFF_On && partHit.vessel.FindPartModuleImplementing<MissileFire>().teamString == IFFID) continue;
-                        //Debug.Log("Proxifuze triggered by " + partHit.partName + " from " + partHit.vessel.vesselName);
-                        return detonate = true;
+                        var distance = Vector3.Distance(partHit.transform.position + partHit.CoMOffset, transform.position);
+                        var predictedDistance = Vector3.Distance(AIUtils.PredictPosition(partHit.transform.position + partHit.CoMOffset, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.deltaTime), AIUtils.PredictPosition(transform.position, vessel.Velocity(), vessel.acceleration, Time.deltaTime));
+                        if (distance > predictedDistance && distance > Time.fixedDeltaTime * (float)vessel.srfSpeed) // If we're closing and not going to hit within the next update, then wait.
+                        {
+                            return detonate = false;
+                        }
                     }
-                    catch
-                    {
-                    }
+                    if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("Proxifuze triggered by " + partHit.partName + " from " + partHit.vessel.vesselName);
+                    return detonate = true;
                 }
             }
             return detonate;

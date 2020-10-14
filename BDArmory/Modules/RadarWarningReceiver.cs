@@ -427,10 +427,7 @@ namespace BDArmory.Modules
             }
             // End Resizing code.
 
-            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
-			{
-				BDGUIUtils.RepositionWindow(ref BDArmorySetup.WindowRectRwr);
-			}
+            BDGUIUtils.RepositionWindow(ref BDArmorySetup.WindowRectRwr);
         }
 
         internal static void UpdateRWRScale(float diff)

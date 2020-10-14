@@ -664,7 +664,8 @@ namespace BDArmory.Modules
 
         void Update()
         {
-            CheckDetonationState();
+            if (!HasFired)
+                CheckDetonationState();
             if (HighLogic.LoadedSceneIsFlight)
 			{
 				if (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) > 0) //#710
@@ -807,6 +808,7 @@ namespace BDArmory.Modules
 
             if (HasFired && !HasExploded && part != null)
             {
+                CheckDetonationState();
                 CheckDetonationDistance();
 
                 part.rb.isKinematic = false;

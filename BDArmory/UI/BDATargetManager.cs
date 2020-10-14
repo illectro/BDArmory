@@ -347,7 +347,7 @@ namespace BDArmory.UI
             foreach (Vessel vessel in LoadedVessels)
             {
                 if (vessel == null)
-                    continue; 
+                    continue;
                 if (!vessel || !vessel.loaded)
                     continue;
                 if (vessel == sourceVessel || vessel == missileVessel)
@@ -965,6 +965,7 @@ namespace BDArmory.UI
                     if (target.Current != null && target.Current.Vessel && mf.CanSeeTarget(target.Current) && !target.Current.isMissile && target.Current.isThreat && !target.Current.isLandedOrSurfaceSplashed)
                     {
                         float targetScore = (target.Current == mf.currentTarget ? mf.targetBias : 1f) * (
+                            1f +
                             mf.targetWeightRange * target.Current.TargetPriRange(mf) +
                             mf.targetWeightATA * target.Current.TargetPriATA(mf) +
                             mf.targetWeightAccel * target.Current.TargetPriAcceleration() +

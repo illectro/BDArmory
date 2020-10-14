@@ -447,16 +447,13 @@ namespace BDArmory.UI
 
         private void CheckIfWindowsSettingsAreWithinScreen()
         {
-            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
-            {
-                BDGUIUtils.UseMouseEventInRect(WindowRectSettings);
-                BDGUIUtils.RepositionWindow(ref WindowRectToolbar);
-                BDGUIUtils.RepositionWindow(ref WindowRectSettings);
-                BDGUIUtils.RepositionWindow(ref WindowRectRwr);
-                BDGUIUtils.RepositionWindow(ref WindowRectVesselSwitcher);
-                BDGUIUtils.RepositionWindow(ref WindowRectWingCommander);
-                BDGUIUtils.RepositionWindow(ref WindowRectTargetingCam);
-            }
+            BDGUIUtils.UseMouseEventInRect(WindowRectSettings);
+            BDGUIUtils.RepositionWindow(ref WindowRectToolbar);
+            BDGUIUtils.RepositionWindow(ref WindowRectSettings);
+            BDGUIUtils.RepositionWindow(ref WindowRectRwr);
+            BDGUIUtils.RepositionWindow(ref WindowRectVesselSwitcher);
+            BDGUIUtils.RepositionWindow(ref WindowRectWingCommander);
+            BDGUIUtils.RepositionWindow(ref WindowRectTargetingCam);
         }
 
         void Update()
@@ -731,6 +728,8 @@ namespace BDArmory.UI
                 if (GUI.Button(new Rect(toolWindowWidth - _windowMargin - 3 * _buttonSize, _windowMargin, _buttonSize, _buttonSize), "Sp", vsStyle))
                 {
                     showVesselSpawnerGUI = !showVesselSpawnerGUI;
+                    if(!showVesselSpawnerGUI)
+                        SaveConfig();
                 }
             }
 
@@ -1208,11 +1207,7 @@ namespace BDArmory.UI
 
             toolWindowHeight = Mathf.Lerp(toolWindowHeight, contentTop + (line * entryHeight) + 5, 1);
             WindowRectToolbar.height = toolWindowHeight;
-            // = new Rect(toolbarWindowRect.position.x, toolbarWindowRect.position.y, toolWindowWidth, toolWindowHeight);
-            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
-            {
-                BDGUIUtils.RepositionWindow(ref WindowRectToolbar);
-            }
+            BDGUIUtils.RepositionWindow(ref WindowRectToolbar);
         }
 
         bool validGPSName = true;
@@ -1578,155 +1573,6 @@ namespace BDArmory.UI
                 ++line;
             }
 
-            /* Moved to VesselSpawnerWindow.cs
-            if (GUI.Button(SLineRect(++line), (BDArmorySettings.SPAWN_SETTINGS_TOGGLE ? "Hide " : "Show ") + Localizer.Format("#LOC_BDArmory_Settings_SpawnSettingsToggle")))//Show/hide spawn settings.
-            {
-                BDArmorySettings.SPAWN_SETTINGS_TOGGLE = !BDArmorySettings.SPAWN_SETTINGS_TOGGLE;
-            }
-            if (BDArmorySettings.SPAWN_SETTINGS_TOGGLE)
-            {
-                BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING = GUI.Toggle(SLeftRect(++line), BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING, Localizer.Format("#LOC_BDArmory_Settings_SpawnContinueSingleSpawning"));  // Spawn craft again after single spawn competition finishes.
-                BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN = GUI.Toggle(SRightRect(line), BDArmorySettings.VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN, Localizer.Format("#LOC_BDArmory_Settings_SpawnDumpLogsEverySpawn")); //Dump logs every spawn.
-
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_SpawnDistanceFactor")}:  ({BDArmorySettings.VESSEL_SPAWN_DISTANCE})", leftLabel);//Spawn Distance
-                BDArmorySettings.VESSEL_SPAWN_DISTANCE = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.VESSEL_SPAWN_DISTANCE / 10f, 1f, 10f) * 10f);
-
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_SpawnEaseInSpeed")}:  ({BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED})", leftLabel);//Spawn Ease In Speed
-                BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED = Mathf.Round(GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED, 0.1f, 1f) * 10f) / 10f;
-
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_SpawnConcurrentVessels")}:  ({(BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS > 0 ? BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS.ToString() : "Inf")})", leftLabel);//Max Concurrent Vessels (CS)
-                BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS, 0f, 20f);
-
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_SpawnLivesPerVessel")}:  ({(BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL > 0 ? BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL.ToString() : "Inf")})", leftLabel);//Respawns (CS)
-                BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.VESSEL_SPAWN_LIVES_PER_VESSEL, 0f, 20f);
-
-                var outOfAmmoKillTimeStr = "never";
-                if (BDArmorySettings.OUT_OF_AMMO_KILL_TIME > -1 && BDArmorySettings.OUT_OF_AMMO_KILL_TIME < 60)
-                    outOfAmmoKillTimeStr = BDArmorySettings.OUT_OF_AMMO_KILL_TIME.ToString("G0") + "s";
-                else if (BDArmorySettings.OUT_OF_AMMO_KILL_TIME > 59 && BDArmorySettings.OUT_OF_AMMO_KILL_TIME < 61)
-                    outOfAmmoKillTimeStr = "1min";
-                else if (BDArmorySettings.OUT_OF_AMMO_KILL_TIME > 60)
-                    outOfAmmoKillTimeStr = ((int)(BDArmorySettings.OUT_OF_AMMO_KILL_TIME / 60f)).ToString("G0") + "mins";
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_OutOfAmmoKillTime")}: ({outOfAmmoKillTimeStr})", leftLabel); // Out of ammo kill timer for continuous spawning mode.
-                float outOfAmmoKillTime;
-                switch ((int)BDArmorySettings.OUT_OF_AMMO_KILL_TIME)
-                {
-                    case 0:
-                        outOfAmmoKillTime = 1f;
-                        break;
-                    case 10:
-                        outOfAmmoKillTime = 2f;
-                        break;
-                    case 20:
-                        outOfAmmoKillTime = 3f;
-                        break;
-                    case 30:
-                        outOfAmmoKillTime = 4f;
-                        break;
-                    case 45:
-                        outOfAmmoKillTime = 5f;
-                        break;
-                    case 60:
-                        outOfAmmoKillTime = 6f;
-                        break;
-                    case 120:
-                        outOfAmmoKillTime = 7f;
-                        break;
-                    case 300:
-                        outOfAmmoKillTime = 8f;
-                        break;
-                    default:
-                        outOfAmmoKillTime = 9f;
-                        break;
-                }
-                outOfAmmoKillTime = GUI.HorizontalSlider(SRightSliderRect(line), outOfAmmoKillTime, 1f, 9f);
-                switch ((int)outOfAmmoKillTime)
-                {
-                    case 1:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 0f; // 0s
-                        break;
-                    case 2:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 10f; // 10s
-                        break;
-                    case 3:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 20f; // 20s
-                        break;
-                    case 4:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 30f; // 30s
-                        break;
-                    case 5:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 45f; // 45s
-                        break;
-                    case 6:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 60f; // 1 min
-                        break;
-                    case 7:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 120f;// 2 mins
-                        break;
-                    case 8:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = 300f; // 5 mins
-                        break;
-                    default:
-                        BDArmorySettings.OUT_OF_AMMO_KILL_TIME = -1f; // Never
-                        break;
-                }
-
-                if (GUI.Button(SLeftButtonRect(++line), Localizer.Format("#LOC_BDArmory_Settings_VesselSpawnGeoCoords"))) //"Vessel Spawning Location"
-                {
-                    Ray ray = new Ray(FlightCamera.fetch.mainCamera.transform.position, FlightCamera.fetch.mainCamera.transform.forward);
-                    RaycastHit hit;
-                    if (Physics.Raycast(ray, out hit, 10000, 1 << 15))
-                    {
-                        BDArmorySettings.VESSEL_SPAWN_GEOCOORDS = FlightGlobals.currentMainBody.GetLatitudeAndLongitude(hit.point);
-                        spawnFields["lat"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x;
-                        spawnFields["lon"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y;
-                    }
-                }
-                var rects = SRight3Rects(line);
-                spawnFields["lat"].tryParseValue(GUI.TextField(rects[0], spawnFields["lat"].possibleValue, 8));
-                spawnFields["lon"].tryParseValue(GUI.TextField(rects[1], spawnFields["lon"].possibleValue, 8));
-                spawnFields["alt"].tryParseValue(GUI.TextField(rects[2], spawnFields["alt"].possibleValue, 8));
-                BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x = Math.Min(Math.Max(spawnFields["lat"].currentValue, -90), 90);
-                BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y = Math.Min(Math.Max(spawnFields["lon"].currentValue, -180), 180);
-                BDArmorySettings.VESSEL_SPAWN_ALTITUDE = Math.Max(0, (float)spawnFields["alt"].currentValue);
-                if (GUI.Button(SLineRect(++line), (BDArmorySettings.SHOW_SPAWN_LOCATIONS ? "Hide " : "Show ") + Localizer.Format("#LOC_BDArmory_Settings_SpawnLocations")))//Show/hide spawn locations
-                {
-                    BDArmorySettings.SHOW_SPAWN_LOCATIONS = !BDArmorySettings.SHOW_SPAWN_LOCATIONS;
-                }
-                if (BDArmorySettings.SHOW_SPAWN_LOCATIONS)
-                {
-                    line++;
-                    int i = 0;
-                    foreach (var spawnLocation in VesselSpawner.spawnLocations)
-                    {
-                        if (GUI.Button(SQuarterRect(line, i++), spawnLocation.name))
-                        {
-                            BDArmorySettings.VESSEL_SPAWN_GEOCOORDS = spawnLocation.location;
-                            spawnFields["lat"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x;
-                            spawnFields["lon"].currentValue = BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y;
-                            VesselSpawner.Instance.ShowSpawnPoint(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS, BDArmorySettings.VESSEL_SPAWN_ALTITUDE, 20);
-                        }
-                    }
-                    line += (i - 1) / 4;
-                }
-
-                if (BDArmorySettings.RUNWAY_PROJECT && BDArmorySettings.REMOTE_LOGGING_VISIBLE)
-                {
-                    bool remoteLoggingEnabled = BDArmorySettings.REMOTE_LOGGING_ENABLED;
-                    BDArmorySettings.REMOTE_LOGGING_ENABLED = GUI.Toggle(SLeftRect(++line), remoteLoggingEnabled, Localizer.Format("#LOC_BDArmory_Settings_RemoteLogging"));//"Remote Logging"
-                    if (remoteLoggingEnabled)
-                    {
-                        GUI.Label(SLeftRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_CompetitionID")}: ", leftLabel); // Competition hash.
-                        BDArmorySettings.COMPETITION_HASH = GUI.TextField(SRightRect(line), BDArmorySettings.COMPETITION_HASH);
-                    }
-                }
-                else
-                    BDArmorySettings.REMOTE_LOGGING_ENABLED = false;
-
-                ++line;
-            }
-            */
-
             if (GUI.Button(SLineRect(++line), (BDArmorySettings.RADAR_SETTINGS_TOGGLE ? "Hide " : "Show ") + Localizer.Format("#LOC_BDArmory_Settings_RadarSettingsToggle")))//Show/hide radar settings.
             {
                 BDArmorySettings.RADAR_SETTINGS_TOGGLE = !BDArmorySettings.RADAR_SETTINGS_TOGGLE;
@@ -1894,10 +1740,7 @@ namespace BDArmory.UI
             line += 1.5f; // Bottom internal margin
             settingsHeight = (line * settingsLineHeight);
             WindowRectSettings.height = settingsHeight;
-            if (BDArmorySettings.STRICT_WINDOW_BOUNDARIES)
-            {
-                BDGUIUtils.RepositionWindow(ref WindowRectSettings);
-            }
+            BDGUIUtils.RepositionWindow(ref WindowRectSettings);
             BDGUIUtils.UseMouseEventInRect(WindowRectSettings);
         }
 

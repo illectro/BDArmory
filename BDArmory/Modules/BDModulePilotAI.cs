@@ -1008,15 +1008,26 @@ namespace BDArmory.Modules
             Vector3 relVelocity = v.Velocity() - vessel.Velocity();
             Vector3 relPosition = v.transform.position - vessel.transform.position;
             Vector3 relAcceleration = v.acceleration - vessel.acceleration;
-            float timeToCPA = vessel.ClosestTimeToCPA(v, 10f);
+            float timeToCPA = vessel.ClosestTimeToCPA(v, 16f);
 
             // Let's try to ram someone!
             if (!ramming)
                 ramming = true;
             currentStatus = "Ramming speed!";
-            Vector3 predictedPosition = AIUtils.PredictPosition(v, timeToCPA); // Predicted position at CPA.
+
+            // Ease in velocity from 16s to 8s, ease in acceleration from 8s to 2s using the logistic function to give smooth adjustments to target point.
+            float easeAccel = Mathf.Clamp01(1.1f / (1f + Mathf.Exp((timeToCPA - 5f))) - 0.05f);
+            float easeVel = Mathf.Clamp01(2f - timeToCPA / 8f);
+            Vector3 predictedPosition = AIUtils.PredictPosition(v.transform.position, v.Velocity() * easeVel, v.acceleration * easeAccel, timeToCPA);
+
+            // Set steer mode to aiming for less than 8s left
+            if (timeToCPA < 8f)
+                steerMode = SteerModes.Aiming;
+            else
+                steerMode = SteerModes.NormalFlight;
+
             if (controlSurfaceLag > 0)
-                predictedPosition += Mathf.Pow(controlSurfaceLag, 2f) * (timeToCPA / controlSurfaceLag - 1f + Mathf.Exp(-timeToCPA / controlSurfaceLag)) * relAcceleration; // Compensation for control surface lag.
+                predictedPosition += -1 * controlSurfaceLag * controlSurfaceLag * (timeToCPA / controlSurfaceLag - 1f + Mathf.Exp(-timeToCPA / controlSurfaceLag)) * vessel.acceleration * easeAccel; // Compensation for control surface lag.
             FlyToPosition(s, predictedPosition);
             AdjustThrottle(maxSpeed, false, true); // Ramming speed!
 

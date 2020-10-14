@@ -630,6 +630,7 @@
     <Content Include="Distribution\GameData\BDArmory\Parts\s-8Launcher\s-8Rocket\rocketTexture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\s-8Launcher\s-8Rocket\srbsmoke.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\s-8Launcher\texture.png" />
+    <Content Include="Distribution\GameData\BDArmory\Parts\SaturnAL31\Jet_Engine_Saturn.dds" />
     <Content Include="Distribution\GameData\BDArmory\Parts\sidewinder\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\smallWarhead\texture.png" />
     <Content Include="Distribution\GameData\BDArmory\Parts\smokeCm\muzzle.png" />
