@@ -345,7 +345,7 @@ namespace BDArmory.Modules
                     if (detonateAtMinimumDistance)
                     {
                         var distance = Vector3.Distance(partHit.transform.position + partHit.CoMOffset, transform.position);
-                        var predictedDistance = Vector3.Distance(AIUtils.PredictPosition(partHit.transform.position + partHit.CoMOffset, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.deltaTime), AIUtils.PredictPosition(transform.position, vessel.Velocity(), vessel.acceleration, Time.deltaTime));
+                        var predictedDistance = Vector3.Distance(AIUtils.PredictPosition(partHit.transform.position + partHit.CoMOffset, partHit.vessel.Velocity(), partHit.vessel.acceleration, Time.fixedDeltaTime), AIUtils.PredictPosition(transform.position, vessel.Velocity(), vessel.acceleration, Time.fixedDeltaTime));
                         if (distance > predictedDistance && distance > Time.fixedDeltaTime * (float)vessel.srfSpeed) // If we're closing and not going to hit within the next update, then wait.
                         {
                             return detonate = false;

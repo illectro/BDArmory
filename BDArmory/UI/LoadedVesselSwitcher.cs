@@ -405,7 +405,7 @@ namespace BDArmory.UI
                 }
             }
             else // Regular sorting.
-                foreach (var teamManagers in weaponManagers)
+                foreach (var teamManagers in weaponManagers.ToList()) // Use a copy as something seems to be modifying the list occassionally.
                 {
                     height += _margin;
                     foreach (var weaponManager in teamManagers.Value)
