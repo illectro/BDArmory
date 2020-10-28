@@ -21,6 +21,7 @@ namespace BDArmory.Control
         public static string spawnLocationsCfg = "GameData/BDArmory/spawn_locations.cfg";
         [VesselSpawnerField] public static List<SpawnLocation> spawnLocations;
 
+
         private string message;
         void Awake()
         {
@@ -105,6 +106,9 @@ namespace BDArmory.Control
         public bool vesselsSpawning = false;
         public bool vesselSpawnSuccess = false;
         public int spawnedVesselCount = 0;
+
+        public Dictionary<string, int> CraftAppearances = new Dictionary<string, int>();
+
 
         // Cancel all spawning modes.
         public void CancelVesselSpawn()
@@ -194,7 +198,66 @@ namespace BDArmory.Control
                 spawnFailureReason = SpawnFailureReason.NoCraft;
                 yield break;
             }
+
             crafts.Shuffle(); // Randomise the spawn order.
+
+            if (BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS > 0 && crafts.Count > BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS) {
+                Debug.Log("[VesselSpawner]: Looking for only " + BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS + " vessels from " + $"/AutoSpawn/{spawnFolder}");
+                int lowestScores = 1000;
+                foreach (string craft in crafts)
+                {
+                    int cScore = 0;
+                    if (CraftAppearances.ContainsKey(craft))
+                    {
+                        cScore = CraftAppearances[craft];
+                    }
+                    if(cScore < lowestScores)
+                    {
+                        lowestScores = cScore;
+                    }
+                }
+                Debug.Log("[VesselSpawner]: lowest score is " + lowestScores);
+                List<string> selectedCraft = new List<string>();
+                List<string> subSelectedCraft = new List<string>();
+                while (selectedCraft.Count < BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS)
+                {
+                    Debug.Log("[VesselSpawner]: looking for craft with score " + lowestScores);
+                    subSelectedCraft.Clear();
+                    foreach (string craft in crafts)
+                    {
+                        int cScore = 0;
+                        if (CraftAppearances.ContainsKey(craft))
+                        {
+                            cScore = CraftAppearances[craft];
+                        }
+                        if (cScore == lowestScores)
+                        {
+                            subSelectedCraft.Add(craft);
+                        }
+                    }
+                    subSelectedCraft.Shuffle();
+                    Debug.Log("[VesselSpawner]: found " + subSelectedCraft.Count());
+                    foreach (string craft in subSelectedCraft)
+                    {
+                        Debug.Log("[VesselSpawner]: adding " + craft);
+                        selectedCraft.Add(craft);
+                        if (selectedCraft.Count >= BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS) break;
+                    }
+                    lowestScores++;
+                }
+                crafts = selectedCraft.GetRange(0, BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS);
+                // finally increment selected craft.
+                foreach (string craft in crafts)
+                {
+                    if(CraftAppearances.ContainsKey(craft))
+                    {
+                        CraftAppearances[craft]++;
+                    } else
+                    {
+                        CraftAppearances[craft] = 1;
+                    }
+                }
+            }
             spawnedVesselCount = 0; // Reset our spawned vessel count.
             altitude = Math.Max(2, altitude); // Don't spawn too low.
             message = "Spawning " + crafts.Count + " vessels at an altitude of " + altitude.ToString("G0") + "m" + (crafts.Count > 8 ? ", this may take some time..." : ".");
