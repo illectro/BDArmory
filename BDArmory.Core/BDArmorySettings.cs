@@ -50,9 +50,15 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static bool ADVANCED_EDIT = true;                     //Used for debug fields not nomrally shown to regular users
 
         // General slider settings
-        [BDAPersistantSettingsField] public static int COMPETITION_DURATION = 5;                  // Competition duration in minutes
-        [BDAPersistantSettingsField] public static float COMPETITION_DISTANCE = 1000;             // Competition distance.
-        [BDAPersistantSettingsField] public static float DEBRIS_CLEANUP_DELAY = 30f;            // Clean up debris after 30s.
+        [BDAPersistantSettingsField] public static int COMPETITION_DURATION = 5;                       // Competition duration in minutes
+        [BDAPersistantSettingsField] public static float COMPETITION_INITIAL_GRACE_PERIOD = 60;        // Competition initial grace period in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_FINAL_GRACE_PERIOD = 10;          // Competition final grace period in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_KILL_TIMER = 15;                  // Competition kill timer in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_KILLER_GM_FREQUENCY = 60;         // Competition killer GM timer in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_KILLER_GM_GRACE_PERIOD = 150;     // Competition killer GM grace period in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_NONCOMPETITOR_REMOVAL_DELAY = 30; // Competition non-competitor removal delay in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_DISTANCE = 1000;                  // Competition distance.
+        [BDAPersistantSettingsField] public static float DEBRIS_CLEANUP_DELAY = 15f;                   // Clean up debris after 30s.
         [BDAPersistantSettingsField] public static int MAX_NUM_BULLET_DECALS = 200;
         [BDAPersistantSettingsField] public static int TERRAIN_ALERT_FREQUENCY = 1;               // Controls how often terrain avoidance checks are made (gets scaled by 1+(radarAltitude/500)^2)
         [BDAPersistantSettingsField] public static int CAMERA_SWITCH_FREQUENCY = 3;               // Controls the minimum time between automated camera switches
@@ -103,23 +109,30 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static bool BATTLEDAMAGE = false;
 
         // Remote logging
-        [BDAPersistantSettingsField] public static bool REMOTE_LOGGING_VISIBLE = false;           // Show/hide the remote orchestration toggle
-        [BDAPersistantSettingsField] public static bool REMOTE_LOGGING_ENABLED = false;           // Enable/disable remote orchestration
-        [BDAPersistantSettingsField] public static string REMOTE_CLIENT_SECRET = "";              // Token used to authorize remote orchestration client
-        [BDAPersistantSettingsField] public static string COMPETITION_HASH = "";                  // Competition hash used for orchestration
+        [BDAPersistantSettingsField] public static bool REMOTE_LOGGING_VISIBLE = false;            // Show/hide the remote orchestration toggle
+        [BDAPersistantSettingsField] public static bool REMOTE_LOGGING_ENABLED = false;            // Enable/disable remote orchestration
+        [BDAPersistantSettingsField] public static string REMOTE_CLIENT_SECRET = "";               // Token used to authorize remote orchestration client
+        [BDAPersistantSettingsField] public static string COMPETITION_HASH = "";                   // Competition hash used for orchestration
 
         // Spawner settings
+        [BDAPersistantSettingsField] public static bool SHOW_SPAWN_OPTIONS = true;                 // Show spawn options.
         [BDAPersistantSettingsField] public static Vector2d VESSEL_SPAWN_GEOCOORDS = new Vector2d(0.05096, -74.8016); // Spawning coordinates on a planetary body.
         [BDAPersistantSettingsField] public static float VESSEL_SPAWN_ALTITUDE = 5f;               // Spawning altitude above the surface.
-        [BDAPersistantSettingsField] public static float VESSEL_SPAWN_DISTANCE_FACTOR = 20f;              // Scale factor for the size of the spawning circle.
+        [BDAPersistantSettingsField] public static float VESSEL_SPAWN_DISTANCE_FACTOR = 20f;       // Scale factor for the size of the spawning circle.
         [BDAPersistantSettingsField] public static float VESSEL_SPAWN_DISTANCE = 10f;              // Radius of the size of the spawning circle.
-        [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_DISTANCE_TOGGLE = false; // Toggle between scaling factor and absolute distance.
+        [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_DISTANCE_TOGGLE = false;      // Toggle between scaling factor and absolute distance.
         [BDAPersistantSettingsField] public static float VESSEL_SPAWN_EASE_IN_SPEED = 1f;          // Rate to limit "falling" during spawning.
         [BDAPersistantSettingsField] public static int VESSEL_SPAWN_CONCURRENT_VESSELS = 0;        // Maximum number of vessels to spawn in concurrently (continuous spawning mode).
         [BDAPersistantSettingsField] public static int VESSEL_SPAWN_LIVES_PER_VESSEL = 0;          // Maximum number of times to spawn a vessel (continuous spawning mode).
-        [BDAPersistantSettingsField] public static float OUT_OF_AMMO_KILL_TIME = -1f;             // Out of ammo kill timer for continuous spawn mode.
+        [BDAPersistantSettingsField] public static float OUT_OF_AMMO_KILL_TIME = -1f;              // Out of ammo kill timer for continuous spawn mode.
         [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING = false; // Spawn craft again after single spawn competition finishes.
         [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN = false; // Dump competition scores every time a vessel spawns.
         [BDAPersistantSettingsField] public static bool SHOW_SPAWN_LOCATIONS = false;              // Show the interesting spawn locations.
+        
+        // Tournament settings
+        [BDAPersistantSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
+        [BDAPersistantSettingsField] public static string TOURNAMENT_FILES_LOCATION = "";          // Tournament files location (under AutoSpawn).
+        [BDAPersistantSettingsField] public static int TOURNAMENT_ROUNDS = 1;                      // Rounds
+        [BDAPersistantSettingsField] public static int TOURNAMENT_VESSELS_PER_HEAT = 8;            // Vessels Per Heat
     }
 }
