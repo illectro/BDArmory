@@ -35,7 +35,7 @@ namespace BDArmory.Control
         public double lastRammedTime; // Rams
         public bool landedState;
         public double lastLandedTime;
-        public double landerKillTimer;
+        public double landedKillTimer;
         public double AverageSpeed;
         public double AverageAltitude;
         public int averageCount;
@@ -155,9 +155,8 @@ namespace BDArmory.Control
         bool competitionShouldBeRunning = false;
         public double competitionStartTime = -1;
         public double nextUpdateTick = -1;
-        private double gracePeriod = -1;
         private double decisionTick = -1;
-        private int dumpedResults = 4;
+        private double finalGracePeriodStart = -1;
         public static int DeathCount = 0;
         public static float gravityMultiplier = 1f;
         float lastGravityMultiplier;
@@ -332,6 +331,7 @@ namespace BDArmory.Control
                     PhysicsGlobals.GraviticForceMultiplier = (double)gravityMultiplier;
                     VehiclePhysics.Gravity.Refresh();
                 }
+                RemoveDebrisNow();
                 competitionStartFailureReason = CompetitionStartFailureReason.None;
                 competitionRoutine = StartCoroutine(DogfightCompetitionModeRoutine(distance));
             }
@@ -353,7 +353,7 @@ namespace BDArmory.Control
             GameEvents.onVesselPartCountChanged.Remove(CheckVesselTypePartCountChanged);
             // GameEvents.onNewVesselCreated.Remove(CheckVesselTypeNewVesselCreated);
             GameEvents.onVesselCreate.Remove(CheckVesselTypeVesselCreate);
-            // GameEvents.onVesselCreate.Remove(DebrisDelayedCleanUp);
+            GameEvents.onVesselCreate.Remove(DebrisDelayedCleanUp);
             rammingInformation = null; // Reset the ramming information.
         }
 
@@ -366,11 +366,11 @@ namespace BDArmory.Control
             GameEvents.onVesselPartCountChanged.Add(CheckVesselTypePartCountChanged);
             // GameEvents.onNewVesselCreated.Add(CheckVesselTypeNewVesselCreated);
             GameEvents.onVesselCreate.Add(CheckVesselTypeVesselCreate);
-            // GameEvents.onVesselCreate.Add(DebrisDelayedCleanUp);
+            GameEvents.onVesselCreate.Add(DebrisDelayedCleanUp);
             competitionStartTime = Planetarium.GetUniversalTime();
             nextUpdateTick = competitionStartTime + 2; // 2 seconds before we start tracking
-            gracePeriod = competitionStartTime + (BDArmorySettings.GRAVITY_HACKS ? 10 : 60);
-            decisionTick = competitionStartTime + 60; // every 60 seconds we do nasty things
+            decisionTick = BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60 ? -1 : competitionStartTime + BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY; // every 60 seconds we do nasty things
+            finalGracePeriodStart = -1;
             lastTagUpdateTime = competitionStartTime;
             Log("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Competition Started");
         }
@@ -395,12 +395,12 @@ namespace BDArmory.Control
             whoCleanShotWhoWithMissiles.Clear();
             whoCleanRammedWho.Clear();
             KillTimer.Clear();
+            nonCompetitorsToRemove.Clear();
             pilotActions.Clear(); // Clear the pilotActions, so we don't get "<pilot> is Dead" on the next round of the competition.
-            dumpedResults = 5;
+            finalGracePeriodStart = -1;
             competitionStartTime = competitionIsActive ? Planetarium.GetUniversalTime() : -1;
             nextUpdateTick = competitionStartTime + 2; // 2 seconds before we start tracking
-            gracePeriod = competitionStartTime + 60;
-            decisionTick = competitionStartTime + 60; // every 60 seconds we do nasty things
+            decisionTick = BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60 ? -1 : competitionStartTime + BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY; // every 60 seconds we do nasty things
             // now find all vessels with weapons managers
             using (var loadedVessels = BDATargetManager.LoadedVessels.GetEnumerator())
                 while (loadedVessels.MoveNext())
@@ -1072,7 +1072,7 @@ namespace BDArmory.Control
                         break;
                     case "RemoveDebris":
                         // remove anything that doesn't contain BD Armory modules
-                        RemoveDebris();
+                        RemoveNonCompetitors();
                         break;
                     case "RemoveFairings":
                         // removes the fairings after deplyment to stop the physical objects consuming CPU
@@ -1090,7 +1090,7 @@ namespace BDArmory.Control
                         break;
                     case "EnableGM":
                         killerGMenabled = true;
-                        decisionTick = Planetarium.GetUniversalTime() + 60;
+                        decisionTick = BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60 ? -1 : Planetarium.GetUniversalTime() + BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY;
                         ResetSpeeds();
                         break;
                 }
@@ -1108,10 +1108,9 @@ namespace BDArmory.Control
             if (!BDArmorySettings.RUNWAY_PROJECT) return;
             if (decisionTick < 0) return;
             if (Planetarium.GetUniversalTime() < decisionTick) return;
-            decisionTick = Planetarium.GetUniversalTime() + 60;
-            RemoveDebris();
+            decisionTick = BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60 ? -1 : Planetarium.GetUniversalTime() + BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY;
             if (!killerGMenabled) return;
-            if (Planetarium.GetUniversalTime() - competitionStartTime < 150) return;
+            if (Planetarium.GetUniversalTime() - competitionStartTime < BDArmorySettings.COMPETITION_KILLER_GM_GRACE_PERIOD) return;
             // arbitrary and capbricious decisions of life and death
 
             bool hasFired = true;
@@ -1218,15 +1217,15 @@ namespace BDArmory.Control
         #endregion
 
         #region Debris clean-up
-        public void RemoveDebris()
+        private HashSet<Vessel> nonCompetitorsToRemove = new HashSet<Vessel>();
+        public void RemoveNonCompetitors()
         {
-            // only call this if enabled
-            // remove anything that doesn't contain BD Armory modules
-            var debrisToKill = new List<Vessel>();
             foreach (var vessel in FlightGlobals.Vessels)
             {
+                if (vessel == null) continue;
                 if (vessel.vesselType == VesselType.SpaceObject) continue; // Ignore asteroids and comets, killing them off can cause null refs (especially comets).
-                // if (vessel.vesselType == VesselType.Debris) continue; // Handled by DebrisDelayedCleanUp
+                if (vessel.vesselType == VesselType.Debris) continue; // Handled by DebrisDelayedCleanUp.
+                if (nonCompetitorsToRemove.Contains(vessel)) continue; // Already scheduled for removal.
                 bool activePilot = false;
                 if (BDArmorySettings.RUNWAY_PROJECT && vessel.GetName() == "Pinata")
                 {
@@ -1280,12 +1279,20 @@ namespace BDArmory.Control
                             }
                 }
                 if (!activePilot)
-                    debrisToKill.Add(vessel);
+                {
+                    nonCompetitorsToRemove.Add(vessel);
+                    StartCoroutine(DelayedVesselRemovalCoroutine(vessel, BDArmorySettings.COMPETITION_NONCOMPETITOR_REMOVAL_DELAY));
+                }
             }
-            foreach (var vessel in debrisToKill)
+        }
+
+        void RemoveDebrisNow()
+        {
+            foreach (var vessel in FlightGlobals.Vessels)
             {
-                Debug.Log("[RemoveObjects] " + vessel.GetName());
-                vessel.Die();
+                if (vessel == null) continue;
+                if (vessel.vesselType == VesselType.Debris)
+                    StartCoroutine(DelayedVesselRemovalCoroutine(vessel, 0));
             }
         }
 
@@ -1294,30 +1301,37 @@ namespace BDArmory.Control
             try
             {
                 if (debris != null && debris.vesselType == VesselType.Debris)
-                    StartCoroutine(DebrisDelayedCleanupCoroutine(debris, BDArmorySettings.DEBRIS_CLEANUP_DELAY));
+                {
+                    StartCoroutine(DelayedVesselRemovalCoroutine(debris, BDArmorySettings.DEBRIS_CLEANUP_DELAY));
+                }
             }
             catch
             {
                 Debug.Log("DEBUG debris " + debris.vesselName + " is a component? " + (debris is Component) + ", is a monobehaviour? " + (debris is MonoBehaviour));
-                throw;
             }
         }
 
-        private IEnumerator DebrisDelayedCleanupCoroutine(Vessel debris, float delay)
+        private IEnumerator DelayedVesselRemovalCoroutine(Vessel vessel, float delay)
         {
             yield return new WaitForSeconds(delay);
-            if (debris != null)
+            if (vessel != null)
             {
-                Debug.Log("[RemoveObjectsDebris] " + debris.GetName());
-                debris.Die();
+                if (BDArmorySettings.DRAW_DEBUG_LABELS)
+                    Debug.Log("[BDACompetitionMode]: Removing " + vessel.GetName());
+                vessel.Die();
             }
             yield return new WaitForFixedUpdate();
-            if (debris != null)
+            if (vessel != null)
             {
-                var partsToKill = debris.parts.ToList();
+                var partsToKill = vessel.parts.ToList();
                 foreach (var part in partsToKill)
                     if (part != null)
                         part.Die();
+            }
+            if (nonCompetitorsToRemove.Contains(vessel))
+            {
+                Debug.Log("[BDACompetitionMode]: " + vessel?.vesselName + " removed.");
+                nonCompetitorsToRemove.Remove(vessel);
             }
         }
         #endregion
@@ -1348,7 +1362,8 @@ namespace BDArmory.Control
             // if (competitionIsActive)
             //     foreach (var upcomingCollision in UpcomingCollisions(100f).Take(3))
             //         Debug.Log("DEBUG Upcoming potential collision between " + upcomingCollision.Key.Item1 + " and " + upcomingCollision.Key.Item2 + " at distance " + Mathf.Sqrt(upcomingCollision.Value.Item1) + "m in " + upcomingCollision.Value.Item2 + "s.");
-            if (Planetarium.GetUniversalTime() < nextUpdateTick)
+            var now = Planetarium.GetUniversalTime();
+            if (now < nextUpdateTick)
                 return;
             double updateTickLength = BDArmorySettings.TAG_MODE ? 0.1 : BDArmorySettings.GRAVITY_HACKS ? 0.5 : 2;
             HashSet<Vessel> vesselsToKill = new HashSet<Vessel>();
@@ -1469,7 +1484,7 @@ namespace BDArmory.Control
                                 }
                             }
                             if (vData.previousPartCount < v.Current.parts.Count)
-                                vData.lastLostPartTime = Planetarium.GetUniversalTime();
+                                vData.lastLostPartTime = now;
                             vData.previousPartCount = v.Current.parts.Count;
 
                             if (v.Current.LandedOrSplashed)
@@ -1477,11 +1492,11 @@ namespace BDArmory.Control
                                 if (!vData.landedState)
                                 {
                                     // was flying, is now landed
-                                    vData.lastLandedTime = Planetarium.GetUniversalTime();
+                                    vData.lastLandedTime = now;
                                     vData.landedState = true;
-                                    if (vData.landerKillTimer == 0)
+                                    if (vData.landedKillTimer == 0)
                                     {
-                                        vData.landerKillTimer = Planetarium.GetUniversalTime();
+                                        vData.landedKillTimer = now;
                                     }
                                 }
                             }
@@ -1489,15 +1504,15 @@ namespace BDArmory.Control
                             {
                                 if (vData.landedState)
                                 {
-                                    vData.lastLandedTime = Planetarium.GetUniversalTime();
+                                    vData.lastLandedTime = now;
                                     vData.landedState = false;
                                 }
-                                if (vData.landerKillTimer != 0)
+                                if (vData.landedKillTimer != 0)
                                 {
                                     // safely airborne for 15 seconds
-                                    if (Planetarium.GetUniversalTime() - vData.landerKillTimer > 15)
+                                    if (now - vData.landedKillTimer > 15)
                                     {
-                                        vData.landerKillTimer = 0;
+                                        vData.landedKillTimer = 0;
                                     }
                                 }
                             }
@@ -1508,7 +1523,7 @@ namespace BDArmory.Control
                             UpdateTag(mf, vesselName, previousNumberCompetitive, alive);
 
                         // after this point we're checking things that might result in kills.
-                        if (Planetarium.GetUniversalTime() < gracePeriod) continue;
+                        if (now - competitionStartTime < BDArmorySettings.COMPETITION_INITIAL_GRACE_PERIOD) continue;
 
                         // keep track if they're shooting for the GM
                         if (mf.currentGun != null)
@@ -1518,7 +1533,7 @@ namespace BDArmory.Control
                                 // keep track that this aircraft was shooting things
                                 if (vData != null)
                                 {
-                                    vData.lastFiredTime = Planetarium.GetUniversalTime();
+                                    vData.lastFiredTime = now;
                                 }
                                 if (mf.currentTarget != null && mf.currentTarget.Vessel != null)
                                 {
@@ -1532,7 +1547,7 @@ namespace BDArmory.Control
                             if (mf.outOfAmmo && !outOfAmmo.Contains(vesselName)) // Report being out of weapons/ammo once.
                             {
                                 outOfAmmo.Add(vesselName);
-                                if (vData != null && (Planetarium.GetUniversalTime() - vData.lastHitTime < 2))
+                                if (vData != null && (now - vData.lastHitTime < 2))
                                 {
                                     competitionStatus.Add(vesselName + " damaged by " + vData.LastPersonWhoDamagedMe() + " and lost weapons");
                                 }
@@ -1556,8 +1571,7 @@ namespace BDArmory.Control
                             vData.AverageSpeed += v.Current.srfSpeed;
                             vData.AverageAltitude += v.Current.altitude;
                             vData.averageCount++;
-                            double landedKillTime = (BDArmorySettings.GRAVITY_HACKS) ? 1d : 15d;
-                            if (vData.landedState && !BDArmorySettings.DISABLE_KILL_TIMER && (Planetarium.GetUniversalTime() - vData.landerKillTimer > landedKillTime))
+                            if (vData.landedState && !BDArmorySettings.DISABLE_KILL_TIMER && (now - vData.landedKillTimer > BDArmorySettings.COMPETITION_KILL_TIMER))
                             {
                                 vesselsToKill.Add(mf.vessel);
                                 competitionStatus.Add(vesselName + " landed too long.");
@@ -1565,43 +1579,45 @@ namespace BDArmory.Control
                         }
 
 
-                        bool shouldKillThis = false;
+                        // FIXME The commented out code below kills off non-competitors, but debris removal is now handled by the delayed debris cleanup routine and non-competitor removal should be done differently
+                        // bool shouldKillThis = false;
 
-                        // if vessels is Debris, kill it
-                        if (vesselName.Contains("Debris")) // FIXME delayed debris cleanup should remove this too
-                        {
-                            // reap this vessel
-                            shouldKillThis = true;
-                        }
+                        // // if vessels is Debris, kill it
+                        // if (vesselName.Contains("Debris")) // FIXME delayed debris cleanup should remove this too
+                        // {
+                        //     // reap this vessel
+                        //     shouldKillThis = true;
+                        // }
 
-                        if (vData == null && !BDArmorySettings.DISABLE_KILL_TIMER) shouldKillThis = true; // Don't kill other things if kill timer is disabled
 
-                        // 15 second time until kill, maybe they recover?
-                        if (KillTimer.ContainsKey(vesselName))
-                        {
-                            if (shouldKillThis)
-                            {
-                                KillTimer[vesselName] += updateTickLength;
-                            }
-                            else
-                            {
-                                KillTimer[vesselName] -= updateTickLength;
-                            }
-                            if (KillTimer[vesselName] > 15)
-                            {
-                                vesselsToKill.Add(mf.vessel);
-                                competitionStatus.Add(vesselName + " exceeded kill timer");
-                            }
-                            else if (KillTimer[vesselName] < 0)
-                            {
-                                KillTimer.Remove(vesselName);
-                            }
-                        }
-                        else
-                        {
-                            if (shouldKillThis)
-                                KillTimer[vesselName] = updateTickLength;
-                        }
+                        // if (vData == null && !BDArmorySettings.DISABLE_KILL_TIMER) shouldKillThis = true; // Don't kill other things if kill timer is disabled
+
+                        // // 15 second time until kill, maybe they recover?
+                        // if (KillTimer.ContainsKey(vesselName))
+                        // {
+                        //     if (shouldKillThis)
+                        //     {
+                        //         KillTimer[vesselName] += updateTickLength;
+                        //     }
+                        //     else
+                        //     {
+                        //         KillTimer[vesselName] -= updateTickLength;
+                        //     }
+                        //     if (KillTimer[vesselName] > BDArmorySettings.COMPETITION_KILL_TIMER)
+                        //     {
+                        //         vesselsToKill.Add(mf.vessel);
+                        //         competitionStatus.Add(vesselName + " exceeded kill timer");
+                        //     }
+                        //     else if (KillTimer[vesselName] < 0)
+                        //     {
+                        //         KillTimer.Remove(vesselName);
+                        //     }
+                        // }
+                        // else
+                        // {
+                        //     if (shouldKillThis)
+                        //         KillTimer[vesselName] = updateTickLength;
+                        // }
 
                     }
                 }
@@ -1644,7 +1660,7 @@ namespace BDArmory.Control
                     if (!DeathOrder.ContainsKey(key))
                     {
                         // adding pilot into death order
-                        DeathOrder[key] = new Tuple<int, double>(DeathOrder.Count, Planetarium.GetUniversalTime() - competitionStartTime);
+                        DeathOrder[key] = new Tuple<int, double>(DeathOrder.Count, now - competitionStartTime);
                         pilotActions[key] = " is Dead";
                         var whoKilledMe = "";
 
@@ -1654,7 +1670,7 @@ namespace BDArmory.Control
                         if (BDArmorySettings.TAG_MODE)
                             UpdateTag(null, key, previousNumberCompetitive, alive);
 
-                        if (Scores[key].gmKillReason == GMKillReason.None && Planetarium.GetUniversalTime() - Scores[key].LastDamageTime() < 10) // Recent kills that weren't instigated by the GM (or similar).
+                        if (Scores[key].gmKillReason == GMKillReason.None && now - Scores[key].LastDamageTime() < 10) // Recent kills that weren't instigated by the GM (or similar).
                         {
                             // if last hit was recent that person gets the kill
                             whoKilledMe = Scores[key].LastPersonWhoDamagedMe();
@@ -1718,7 +1734,7 @@ namespace BDArmory.Control
                                 Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]: " + key + ":KILLED:" + killer);
                             }
                             if (BDArmorySettings.REMOTE_LOGGING_ENABLED && Scores[key].gmKillReason == GMKillReason.None) // Don't count kills by the GM.
-                                Competition.BDAScoreService.Instance.ComputeAssists(key, "", Planetarium.GetUniversalTime() - competitionStartTime);
+                                Competition.BDAScoreService.Instance.ComputeAssists(key, "", now - competitionStartTime);
                         }
                         if (whoKilledMe != "")
                         {
@@ -1748,39 +1764,27 @@ namespace BDArmory.Control
             }
             deadOrAlive = doaUpdate;
 
-            if ((Planetarium.GetUniversalTime() > gracePeriod) && numberOfCompetitiveVessels < 2 && !VesselSpawner.Instance.vesselsSpawningContinuously)
+            if (now - competitionStartTime > BDArmorySettings.COMPETITION_INITIAL_GRACE_PERIOD && numberOfCompetitiveVessels < 2 && !VesselSpawner.Instance.vesselsSpawningContinuously)
             {
-
-                if (dumpedResults == 1)
+                if (finalGracePeriodStart < 0)
+                    finalGracePeriodStart = now;
+                if (!(BDArmorySettings.COMPETITION_FINAL_GRACE_PERIOD > 60) && now - finalGracePeriodStart > BDArmorySettings.COMPETITION_FINAL_GRACE_PERIOD)
                 {
                     competitionStatus.Add("All Pilots are Dead");
                     foreach (string key in alive)
                     {
                         competitionStatus.Add(key + " wins the round!");
                     }
-                }
-                if (dumpedResults > 0)
-                {
-                    dumpedResults--;
-                }
-                else if (dumpedResults == 0)
-                {
                     Log("[BDACompetitionMode:" + CompetitionID.ToString() + "]:No viable competitors, Automatically dumping scores");
-                    LogResults("automatically");
                     StopCompetition();
-                    dumpedResults--;
                 }
-            }
-            else
-            {
-                dumpedResults = 5;
             }
 
             //Reset gravity
             if (BDArmorySettings.GRAVITY_HACKS && competitionIsActive)
             {
                 int maxVesselsActive = (VesselSpawner.Instance.vesselsSpawningContinuously && BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS > 0) ? BDArmorySettings.VESSEL_SPAWN_CONCURRENT_VESSELS : Scores.Count;
-                double time = Planetarium.GetUniversalTime() - competitionStartTime;
+                double time = now - competitionStartTime;
                 gravityMultiplier = 1f + 7f * (float)(DeathCount % maxVesselsActive) / (float)(maxVesselsActive - 1); // From 1G to 8G.
                 gravityMultiplier += VesselSpawner.Instance.vesselsSpawningContinuously ? Mathf.Sqrt(5f - 5f * Mathf.Cos((float)time / 600f * Mathf.PI)) : Mathf.Sqrt((float)time / 60f); // Plus up to 3.16G.
                 PhysicsGlobals.GraviticForceMultiplier = (double)gravityMultiplier;
@@ -1811,12 +1815,17 @@ namespace BDArmory.Control
                 KillTimer.Remove(vesselName);
             }
 
-            if (BDArmorySettings.RUNWAY_PROJECT)
-                FindVictim();
-            // Debug.Log("[BDACompetitionMode" + CompetitionID.ToString() + "]: Done With Update");
-            if (BDArmorySettings.TAG_MODE) lastTagUpdateTime = Planetarium.GetUniversalTime();
+            if (!(BDArmorySettings.COMPETITION_NONCOMPETITOR_REMOVAL_DELAY > 60))
+                RemoveNonCompetitors();
 
-            if (!VesselSpawner.Instance.vesselsSpawningContinuously && BDArmorySettings.COMPETITION_DURATION > 0 && Planetarium.GetUniversalTime() - competitionStartTime >= BDArmorySettings.COMPETITION_DURATION * 60d)
+            if (BDArmorySettings.RUNWAY_PROJECT)
+            {
+                FindVictim();
+            }
+            // Debug.Log("[BDACompetitionMode" + CompetitionID.ToString() + "]: Done With Update");
+            if (BDArmorySettings.TAG_MODE) lastTagUpdateTime = now;
+
+            if (!VesselSpawner.Instance.vesselsSpawningContinuously && BDArmorySettings.COMPETITION_DURATION > 0 && now - competitionStartTime >= BDArmorySettings.COMPETITION_DURATION * 60d)
             {
                 LogResults("due to out-of-time");
                 StopCompetition();
@@ -1843,7 +1852,7 @@ namespace BDArmory.Control
             // get everyone who's still alive
             HashSet<string> alive = new HashSet<string>();
             competitionStatus.Add("Dumping scores for competition " + CompetitionID.ToString() + (tag != "" ? " " + tag : ""));
-            logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Dumping Results" + (message != "" ? " " + message : "") + " at " + (int)(Planetarium.GetUniversalTime() - competitionStartTime) + "s");
+            logStrings.Add("[BDArmoryCompetition:" + CompetitionID.ToString() + "]: Dumping Results" + (message != "" ? " " + message : "") + " after " + (int)(Planetarium.GetUniversalTime() - competitionStartTime) + "s at " + DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss zzz"));
 
 
             using (List<Vessel>.Enumerator v = FlightGlobals.Vessels.GetEnumerator())
@@ -1964,6 +1973,11 @@ namespace BDArmory.Control
             if (CompetitionID > 0)
             {
                 var folder = Environment.CurrentDirectory + "/GameData/BDArmory/Logs";
+                if (BDATournament.Instance.tournamentStatus == TournamentStatus.Running)
+                {
+                    folder = Path.Combine(folder, "Tournament " + BDATournament.Instance.tournamentID, "Round " + BDATournament.Instance.currentRound);
+                    tag = "Heat " + BDATournament.Instance.currentHeat;
+                }
                 if (!Directory.Exists(folder))
                     Directory.CreateDirectory(folder);
                 File.WriteAllLines(Path.Combine(folder, CompetitionID.ToString() + (tag != "" ? "-" + tag : "") + ".log"), logStrings);

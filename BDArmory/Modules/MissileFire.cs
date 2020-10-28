@@ -2438,6 +2438,7 @@ namespace BDArmory.Modules
             SetRotaryRails();
         }
 
+        private HashSet<uint> baysOpened = new HashSet<uint>();
         private bool SetCargoBays()
         {
             if (!guardMode) return false;
@@ -2473,13 +2474,14 @@ namespace BDArmory.Modules
                                     {
                                         anim.Toggle();
                                         openingBays = true;
+                                        baysOpened.Add(bay.Current.GetPersistentId());
                                     }
                                 }
                             }
                             else
                             {
-                                ModuleAnimateGeneric anim =
-                                    bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
+                                if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
+                                ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
                                 if (anim == null) continue;
 
                                 string toggleOption = anim.Events["Toggle"].guiName;
@@ -2499,8 +2501,8 @@ namespace BDArmory.Modules
                         while (bay.MoveNext())
                         {
                             if (bay.Current == null) continue;
-                            ModuleAnimateGeneric anim =
-                                bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
+                            if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
+                            ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
                             if (anim == null) continue;
 
                             string toggleOption = anim.Events["Toggle"].guiName;
@@ -2520,6 +2522,7 @@ namespace BDArmory.Modules
                     while (bay.MoveNext())
                     {
                         if (bay.Current == null) continue;
+                        if (!baysOpened.Contains(bay.Current.GetPersistentId())) continue; // Only close bays we've opened.
                         ModuleAnimateGeneric anim = bay.Current.part.Modules.GetModule(bay.Current.DeployModuleIndex) as ModuleAnimateGeneric;
                         if (anim == null) continue;
 
@@ -3635,16 +3638,13 @@ namespace BDArmory.Modules
                             // not sure on the desired selection priority algorithm, so placeholder By Yield for now
                             float droptime = ((MissileBase)item.Current).dropTime;
 
-                            if (droptime > 0) //make sure it's an airdropped torpedo if flying
+                            if (droptime > 0 || vessel.LandedOrSplashed) //make sure it's an airdropped torpedo if flying
                             {
-                                if (!vessel.LandedOrSplashed)
-                                {
-                                    if (targetYield > canidateYield) continue;
-                                    targetYield = canidateYield;
-                                    targetWeapon = item.Current;
-                                    if (distance > gunRange)
-                                        break;
-                                }
+                                if (targetYield > canidateYield) continue;
+                                targetYield = canidateYield;
+                                targetWeapon = item.Current;
+                                if (distance > gunRange)
+                                    break;
                             }
                         }
 

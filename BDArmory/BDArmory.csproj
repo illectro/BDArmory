@@ -236,6 +236,7 @@
     <Compile Include="Control\VesselSpawner.cs" />
     <Compile Include="Control\VesselSpawnerField.cs" />
     <Compile Include="UI\VesselSpawnerWindow.cs" />
+    <Compile Include="Control\BDATournament.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\BDArmory.Core\BDArmory.Core.csproj">
