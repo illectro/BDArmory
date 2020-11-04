@@ -397,7 +397,7 @@ namespace BDArmory.Modules
         // Target priority variables
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_TargetPriority", advancedTweakable = true, groupName = "targetPriority", groupDisplayName = "#LOC_BDArmory_TargetPriority_Settings", groupStartCollapsed = true),//Target Priority Toggle
             UI_Toggle(enabledText = "#LOC_BDArmory_Enabled", disabledText = "#LOC_BDArmory_Disabled", scene = UI_Scene.All),]
-        public bool targetPriorityEnabled = false;
+        public bool targetPriorityEnabled = true;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_TargetPriority_CurrentTarget", advancedTweakable = true, groupName = "targetPriority", groupDisplayName = "#LOC_BDArmory_TargetPriority_Settings", groupStartCollapsed = true), UI_Label(scene = UI_Scene.All)]
         public string TargetLabel = "";
@@ -3897,6 +3897,7 @@ namespace BDArmory.Modules
                     currentTarget.Disengage(this);
                 }
                 target.Engage(this);
+                if (currentTarget != target && pilotAI && pilotAI.IsExtending) pilotAI.StopExtending();
                 currentTarget = target;
                 guardTarget = target.Vessel;
             }

@@ -75,7 +75,7 @@ namespace BDArmory.Control
             float gravAccel = GravAccel();
             float requestEngineAccel = accel - gravAccel;
 
-            possibleAccel = gravAccel;
+            possibleAccel = 0; //gravAccel;
 
             float dragAccel = 0;
             float engineAccel = MaxEngineAccel(requestEngineAccel, out dragAccel);

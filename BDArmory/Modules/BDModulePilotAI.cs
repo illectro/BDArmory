@@ -35,6 +35,11 @@ namespace BDArmory.Modules
             get { return extending || requestedExtend; }
         }
 
+        public void StopExtending()
+        {
+            extending = false;
+        }
+
         public void RequestExtend(Vector3 tPosition)
         {
             requestedExtend = true;
@@ -765,19 +770,20 @@ namespace BDArmory.Modules
             if (gainAltInhibited && (!belowMinAltitude || !(currentStatus == "Engaging" || currentStatus == "Evading" || currentStatus.StartsWith("Gain Alt"))))
             { // Allow switching between "Engaging", "Evading" and "Gain Alt." while below minimum altitude without disabling the gain altitude inhibitor.
                 gainAltInhibited = false;
-                // Debug.Log("DEBUG " + vessel.vesselName + " is no longer inhibiting gain alt");
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG " + vessel.vesselName + " is no longer inhibiting gain alt");
             }
 
             if (!gainAltInhibited && belowMinAltitude && (currentStatus == "Engaging" || currentStatus == "Evading"))
             { // Vessel went below minimum altitude while "Engaging" or "Evading", enable the gain altitude inhibitor.
                 gainAltInhibited = true;
-                // Debug.Log("DEBUG " + vessel.vesselName + " was " + currentStatus + " and went below min altitude, inhibiting gain alt.");
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG " + vessel.vesselName + " was " + currentStatus + " and went below min altitude, inhibiting gain alt.");
             }
 
             if (vessel.srfSpeed < minSpeed)
             { regainEnergy = true; }
             else if (!belowMinAltitude && vessel.srfSpeed > Mathf.Min(minSpeed + 20f, idleSpeed))
             { regainEnergy = false; }
+
 
             UpdateVelocityRelativeDirections();
             CheckLandingGear();
@@ -1210,9 +1216,9 @@ namespace BDArmory.Modules
             targetDirection = Vector3.RotateTowards(vessel.Velocity(), targetDirection, 15f * Mathf.Deg2Rad, 0).normalized;
 
             if (throttleOverride >= 0)
-                AdjustThrottle(maxSpeed, false, false, throttleOverride);
+                AdjustThrottle(maxSpeed, false, true, throttleOverride);
             else
-                AdjustThrottle(maxSpeed, false, false);
+                AdjustThrottle(maxSpeed, false, true);
 
             FlyToPosition(s, vesselTransform.position + (targetDirection * 100), true);
         }
@@ -1225,7 +1231,8 @@ namespace BDArmory.Modules
             debugString.Append($"possibleAccel: {possibleAccel}");
             debugString.Append(Environment.NewLine);
 
-            float limiter = ((speed - 50) / 330f) + possibleAccel / 15f;
+            // float limiter = ((speed - 50) / 330f) + possibleAccel / 15f;
+            float limiter = ((speed - idleSpeed / 2f) / idleSpeed) + possibleAccel; // FIXME Find the right scaling factor for possibleAccel without G.
             debugString.Append($"unclamped limiter: { limiter}");
             debugString.Append(Environment.NewLine);
 
@@ -2413,7 +2420,7 @@ namespace BDArmory.Modules
             }
             else if (command == PilotCommands.Attack)
             {
-                if ((BDArmorySettings.RUNWAY_PROJECT) && (targetVessel != null) && ((targetVessel.vesselTransform.position-vessel.vesselTransform.position).sqrMagnitude <= (weaponManager.guardRange * weaponManager.guardRange))) // If the vessel has a target within range, let it fight!
+                if ((BDArmorySettings.RUNWAY_PROJECT) && (targetVessel != null) && ((targetVessel.vesselTransform.position - vessel.vesselTransform.position).sqrMagnitude <= (weaponManager.guardRange * weaponManager.guardRange))) // If the vessel has a target within range, let it fight!
                 {
                     ReleaseCommand();
                     return;

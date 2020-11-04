@@ -461,14 +461,13 @@ namespace BDArmory.Modules
         {
             RefreshFriendlies();
             int i = 0;
-            List<IBDAIControl>.Enumerator wingman = friendlies.GetEnumerator();
-            while (wingman.MoveNext())
-            {
-                if (wingman.Current == null) continue;
-                wingman.Current.CommandFollow(this, i);
-                i++;
-            }
-            wingman.Dispose();
+            using (var wingman = friendlies.GetEnumerator())
+                while (wingman.MoveNext())
+                {
+                    if (wingman.Current == null) continue;
+                    wingman.Current.CommandFollow(this, i);
+                    i++;
+                }
         }
 
         void CommandAG(IBDAIControl wingman, int index, object ag)

@@ -1596,7 +1596,10 @@ namespace BDArmory.UI
 
                     GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_CompetitionKillerGMFrequency")}: ({(BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60 ? "Off" : BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY + "s")}, {(BDACompetitionMode.Instance.killerGMenabled ? "on" : "off")})", leftLabel);
                     BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY / 10f, 1, 6) * 10f; // For now, don't control the killerGMEnabled flag (it's controlled by right clicking M).
-                    // BDACompetitionMode.Instance.killerGMenabled = !(BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60);
+                                                                                                                                                                                              // BDACompetitionMode.Instance.killerGMenabled = !(BDArmorySettings.COMPETITION_KILLER_GM_FREQUENCY > 60);
+
+                    GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_CompetitionKillerGMMaxAltitude")}: ({(BDArmorySettings.COMPETITION_KILLER_GM_MAX_ALTITUDE > 100 ? "Never" : BDArmorySettings.COMPETITION_KILLER_GM_MAX_ALTITUDE + "km")})", leftLabel);
+                    BDArmorySettings.COMPETITION_KILLER_GM_MAX_ALTITUDE = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.COMPETITION_KILLER_GM_MAX_ALTITUDE, 1f, 101f);
                 }
 
                 ++line;

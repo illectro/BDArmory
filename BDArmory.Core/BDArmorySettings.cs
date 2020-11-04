@@ -56,6 +56,7 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static float COMPETITION_KILL_TIMER = 15;                  // Competition kill timer in seconds.
         [BDAPersistantSettingsField] public static float COMPETITION_KILLER_GM_FREQUENCY = 60;         // Competition killer GM timer in seconds.
         [BDAPersistantSettingsField] public static float COMPETITION_KILLER_GM_GRACE_PERIOD = 150;     // Competition killer GM grace period in seconds.
+        [BDAPersistantSettingsField] public static float COMPETITION_KILLER_GM_MAX_ALTITUDE = 30;     // Altitude in km at which to kill off craft.
         [BDAPersistantSettingsField] public static float COMPETITION_NONCOMPETITOR_REMOVAL_DELAY = 30; // Competition non-competitor removal delay in seconds.
         [BDAPersistantSettingsField] public static float COMPETITION_DISTANCE = 1000;                  // Competition distance.
         [BDAPersistantSettingsField] public static float DEBRIS_CLEANUP_DELAY = 15f;                   // Clean up debris after 30s.

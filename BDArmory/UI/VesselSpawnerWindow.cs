@@ -69,6 +69,8 @@ namespace BDArmory.UI
         // VesselSpawner.SpawnConfig targetSpawnConfig;
         // static Dictionary<string, SpawnField> targetSpawnFields;
         // static float competitionStartDelay = 15;
+        // FIXME Round 4
+        public bool round4running = false;
         #endregion
 
         #region Styles
@@ -536,6 +538,15 @@ namespace BDArmory.UI
                 }
             }
             */
+            if (BDArmorySettings.RUNWAY_PROJECT)
+            {
+                if (GUI.Button(SLineRect(++line), "Runway Project Season 2 Round 4", !(round4running && BDATournament.Instance.tournamentStatus != TournamentStatus.Completed) ? BDArmorySetup.BDGuiSkin.button : BDArmorySetup.BDGuiSkin.box))
+                {
+                    round4running = true;
+                    BDATournament.Instance.RunTournament();
+                }
+            }
+
             if (GUI.Button(SLineRect(++line), Localizer.Format("#LOC_BDArmory_Settings_CancelSpawning"), (_vesselsSpawned || VesselSpawner.Instance.vesselsSpawningContinuously) ? BDArmorySetup.BDGuiSkin.button : BDArmorySetup.BDGuiSkin.box))
             {
                 if (_vesselsSpawned)
@@ -545,6 +556,7 @@ namespace BDArmory.UI
                     Debug.Log("[BDArmory]: Resetting continuous spawning button.");
                 BDATournament.Instance.StopTournament();
                 VesselSpawner.Instance.CancelVesselSpawn();
+                round4running = false; // FIXME Round 4
             }
 
             line += 1.25f; // Bottom internal margin

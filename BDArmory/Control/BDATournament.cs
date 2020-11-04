@@ -313,7 +313,17 @@ namespace BDArmory.Control
 
         IEnumerator ExecuteHeat(int roundIndex, int heatIndex)
         {
-            VesselSpawner.Instance.SpawnAllVesselsOnce(tournamentState.rounds[roundIndex][heatIndex]);
+            if (VesselSpawnerWindow.Instance.round4running) // FIXME Round 4
+            {
+                var team1Config = new VesselSpawner.SpawnConfig(tournamentState.rounds[roundIndex][heatIndex]);
+                team1Config.craftFiles = team1Config.craftFiles.Take(team1Config.craftFiles.Count / 2).ToList();
+                var team2Config = new VesselSpawner.SpawnConfig(tournamentState.rounds[roundIndex][heatIndex]);
+                team2Config.craftFiles = team2Config.craftFiles.Skip(team2Config.craftFiles.Count / 2).ToList();
+                team2Config.latitude += 8;
+                VesselSpawner.Instance.TeamSpawn(new List<VesselSpawner.SpawnConfig> { team1Config, team2Config }, false);
+            }
+            else
+                VesselSpawner.Instance.SpawnAllVesselsOnce(tournamentState.rounds[roundIndex][heatIndex]);
             while (VesselSpawner.Instance.vesselsSpawning)
                 yield return new WaitForFixedUpdate();
             if (!VesselSpawner.Instance.vesselSpawnSuccess)
