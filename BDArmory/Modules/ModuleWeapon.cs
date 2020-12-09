@@ -764,6 +764,11 @@ namespace BDArmory.Modules
 
         void OnDestroy()
         {
+            if (muzzleFlashEmitters != null)
+                foreach (var pe in muzzleFlashEmitters)
+                    if (pe) EffectBehaviour.RemoveParticleEmitter(pe);
+            foreach (var pe in part.FindModelComponents<KSPParticleEmitter>())
+                if (pe) EffectBehaviour.RemoveParticleEmitter(pe);
             BDArmorySetup.OnVolumeChange -= UpdateVolume;
             WeaponNameWindow.OnActionGroupEditorOpened.Remove(OnActionGroupEditorOpened);
             WeaponNameWindow.OnActionGroupEditorClosed.Remove(OnActionGroupEditorClosed);
@@ -931,7 +936,7 @@ namespace BDArmory.Modules
 
         void OnGUI()
         {
-            if (weaponState == WeaponStates.Enabled && vessel && !vessel.packed && vessel.isActiveVessel &&
+            if (HighLogic.LoadedSceneIsFlight && weaponState == WeaponStates.Enabled && vessel && !vessel.packed && vessel.isActiveVessel &&
                 BDArmorySettings.DRAW_AIMERS && !aiControlled && !MapView.MapIsEnabled && !pointingAtSelf)
             {
                 float size = 30;
@@ -2091,21 +2096,20 @@ namespace BDArmory.Modules
                         aptrTicker = 0;
                         Vessel tgt = null;
                         float closestSqrDist = autoProxyTrackRange * autoProxyTrackRange;
-                        List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator();
-                        while (v.MoveNext())
-                        {
-                            if (v.Current == null || !v.Current.loaded) continue;
-                            if (!v.Current.IsControllable) continue;
-                            if (v.Current == vessel) continue;
-                            Vector3 targetVector = v.Current.transform.position - part.transform.position;
-                            if (Vector3.Dot(targetVector, fireTransforms[0].forward) < 0) continue;
-                            float sqrDist = (v.Current.transform.position - part.transform.position).sqrMagnitude;
-                            if (sqrDist > closestSqrDist) continue;
-                            if (Vector3.Angle(targetVector, fireTransforms[0].forward) > 20) continue;
-                            tgt = v.Current;
-                            closestSqrDist = sqrDist;
-                        }
-                        v.Dispose();
+                        using (var v = BDATargetManager.LoadedVessels.GetEnumerator())
+                            while (v.MoveNext())
+                            {
+                                if (v.Current == null || !v.Current.loaded) continue;
+                                if (!v.Current.IsControllable) continue;
+                                if (v.Current == vessel) continue;
+                                Vector3 targetVector = v.Current.transform.position - part.transform.position;
+                                if (Vector3.Dot(targetVector, fireTransforms[0].forward) < 0) continue;
+                                float sqrDist = (v.Current.transform.position - part.transform.position).sqrMagnitude;
+                                if (sqrDist > closestSqrDist) continue;
+                                if (Vector3.Angle(targetVector, fireTransforms[0].forward) > 20) continue;
+                                tgt = v.Current;
+                                closestSqrDist = sqrDist;
+                            }
 
                         if (tgt == null) return;
                         targetAcquired = true;
@@ -2240,8 +2244,7 @@ namespace BDArmory.Modules
 
         void SetupShellPool()
         {
-            GameObject templateShell =
-                (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/shell/model"));
+            GameObject templateShell = GameDatabase.Instance.GetModel("BDArmory/Models/shell/model");
             templateShell.SetActive(false);
             templateShell.AddComponent<ShellCasing>();
             shellPool = ObjectPool.CreateObjectPool(templateShell, 50, true, true);

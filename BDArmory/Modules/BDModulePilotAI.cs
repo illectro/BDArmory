@@ -26,6 +26,8 @@ namespace BDArmory.Modules
         SteerModes steerMode = SteerModes.NormalFlight;
 
         bool extending;
+        double startedExtendingAt = 0;
+        string extendingReason = "";
 
         bool requestedExtend;
         Vector3 requestedExtendTpos;
@@ -38,6 +40,9 @@ namespace BDArmory.Modules
         public void StopExtending()
         {
             extending = false;
+            extendingReason = "";
+            startedExtendingAt = 0;
+            if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG Stop extending due to request");
         }
 
         public void RequestExtend(Vector3 tPosition)
@@ -822,6 +827,7 @@ namespace BDArmory.Modules
             if (requestedExtend)
             {
                 requestedExtend = false;
+                if (!extending) startedExtendingAt = Planetarium.GetUniversalTime();
                 extending = true;
                 lastTargetPosition = requestedExtendTpos;
             }
@@ -902,7 +908,9 @@ namespace BDArmory.Modules
                     if (canExtend && vessel.altitude < defaultAltitude && Vector3.Angle(targetVesselRelPos, -upDirection) < 35) // Target is at a steep angle below us and we're below default altitude, extend to get a better angle instead of attacking now.
                     {
                         //dangerous if low altitude and target is far below you - don't dive into ground!
+                        if (!extending) startedExtendingAt = Planetarium.GetUniversalTime();
                         extending = true;
+                        extendingReason = "Too steeply below";
                         lastTargetPosition = targetVessel.vesselTransform.position;
                     }
 
@@ -923,7 +931,9 @@ namespace BDArmory.Modules
 
                     if (canExtend && targetVelFrac < 0.8f && targetForwardDot < 0.2f && targetVesselRelPos.magnitude < 400) // Target is outside of ~78° cone ahead, closer than 400m and slower than us, so we won't be able to turn to attack it now.
                     {
+                        if (!extending) startedExtendingAt = Planetarium.GetUniversalTime();
                         extending = true;
+                        extendingReason = "Can't turn fast enough";
                         lastTargetPosition = targetVessel.vesselTransform.position - vessel.Velocity();       //we'll set our last target pos based on the enemy vessel and where we were 1 seconds ago
                         weaponManager.ForceScan();
                     }
@@ -931,18 +941,21 @@ namespace BDArmory.Modules
                     {
                         //extend if turning circles for too long
                         RequestExtend(targetVessel.vesselTransform.position);
+                        extendingReason = "Turning too long";
                         turningTimer = 0;
                         weaponManager.ForceScan();
                     }
                 }
-                else //extend if too close for agm attack (agm = air-to-ground missiles -- not actually checked, target is on the ground/water)
+                else //extend if too close for agm attack (agm = air-to-ground missiles, target is on the ground/water)
                 {
                     float extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 2500, 4000);
                     float srfDist = (GetSurfacePosition(targetVessel.transform.position) - GetSurfacePosition(vessel.transform.position)).sqrMagnitude;
 
                     if (srfDist < extendDistance * extendDistance && Vector3.Angle(vesselTransform.up, targetVessel.transform.position - vessel.transform.position) > 45)
                     {
+                        if (!extending) startedExtendingAt = Planetarium.GetUniversalTime();
                         extending = true;
+                        extendingReason = "Surface target";
                         lastTargetPosition = targetVessel.transform.position;
                         weaponManager.ForceScan();
                     }
@@ -1187,6 +1200,7 @@ namespace BDArmory.Modules
                 && vessel.srfSpeed > idleSpeed)
             {
                 RequestExtend(lastTargetPosition); // Get far enough away to use the missile.
+                extendingReason = "Missile";
             }
 
             if (regainEnergy && angleToTarget > 30f)
@@ -1231,8 +1245,7 @@ namespace BDArmory.Modules
             debugString.Append($"possibleAccel: {possibleAccel}");
             debugString.Append(Environment.NewLine);
 
-            // float limiter = ((speed - 50) / 330f) + possibleAccel / 15f;
-            float limiter = ((speed - idleSpeed / 2f) / idleSpeed) + possibleAccel; // FIXME Find the right scaling factor for possibleAccel without G.
+            float limiter = ((speed - minSpeed) / 2 / minSpeed) + possibleAccel / 15f; // FIXME The calculation for possibleAccel needs further investigation.
             debugString.Append($"unclamped limiter: { limiter}");
             debugString.Append(Environment.NewLine);
 
@@ -1444,6 +1457,9 @@ namespace BDArmory.Modules
                 if (weaponManager.TargetOverride)
                 {
                     extending = false;
+                    extendingReason = "";
+                    startedExtendingAt = 0;
+                    if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG Stop extending due to target override");
                 }
 
                 float extendDistance = Mathf.Clamp(weaponManager.guardRange - 1800, 500, 4000) * extendMult; // General extending distance.
@@ -1455,11 +1471,12 @@ namespace BDArmory.Modules
                     desiredMinAltitude = defaultAltitude;
                 }
 
-                if (targetVessel != null && !targetVessel.LandedOrSplashed) // We have a flying target, only extend a short distance and don't climb.     //this is just asking for trouble at 800m
+                if (targetVessel != null && !targetVessel.LandedOrSplashed) // We have a flying target, only extend a short distance and don't climb.
                 {
-                    extendDistance = 300 * extendMult;
+                    extendDistance = 300 * extendMult; // The effect of this is generally to extend for only 1 frame.
                     desiredMinAltitude = minAltitude;
                 }
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG " + vessel.vesselName + " extending for " + (Planetarium.GetUniversalTime() - startedExtendingAt) + "s due to \"" + extendingReason + "\" for distance " + extendDistance + ", expected time " + (extendDistance / vessel.srfSpeed) + "s");
 
                 Vector3 srfVector = Vector3.ProjectOnPlane(vessel.transform.position - tPosition, upDirection);
                 float srfDist = srfVector.magnitude;
@@ -1482,11 +1499,17 @@ namespace BDArmory.Modules
                 else // We're far enough away, stop extending.
                 {
                     extending = false;
+                    extendingReason = "";
+                    startedExtendingAt = 0;
+                    if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG Stop extending due to gone far enough (" + srfDist + " of " + extendDistance + ")");
                 }
             }
             else // No weapon manager.
             {
                 extending = false;
+                extendingReason = "";
+                startedExtendingAt = 0;
+                if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("DEBUG Stop extending due to no weapon manager");
             }
         }
 
@@ -1927,7 +1950,7 @@ namespace BDArmory.Modules
                 // Check for collisions with other vessels.
                 bool vesselCollision = false;
                 collisionAvoidDirection = vessel.srf_vel_direction;
-                using (List<Vessel>.Enumerator vs = BDATargetManager.LoadedVessels.GetEnumerator())
+                using (var vs = BDATargetManager.LoadedVessels.GetEnumerator())
                     while (vs.MoveNext())
                     {
                         if (vs.Current == null) continue;

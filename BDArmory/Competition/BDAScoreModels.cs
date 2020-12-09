@@ -201,6 +201,9 @@ namespace BDArmory.Competition
         public int deaths;
         public float distance;
         public string weapon;
+        public float death_order;
+        public float death_time;
+        public int wins;
 
         public string ToJSON()
         {

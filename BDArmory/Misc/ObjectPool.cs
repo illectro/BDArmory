@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using BDArmory.Core;
 
 namespace BDArmory.Misc
 {
@@ -9,6 +10,7 @@ namespace BDArmory.Misc
         public GameObject poolObject;
         public int size { get { return pool.Count; } }
         public bool canGrow;
+        public float disableAfterDelay;
         public bool forceReUse;
         public int lastIndex = 0;
 
@@ -21,13 +23,33 @@ namespace BDArmory.Misc
             pool = new List<GameObject>();
         }
 
-        void Start()
+        void OnDestroy()
         {
+            foreach (var poolObject in pool)
+                if (poolObject != null)
+                    Destroy(poolObject);
         }
 
         public GameObject GetPooledObject(int index)
         {
             return pool[index];
+        }
+
+        public void AdjustSize(int count)
+        {
+            if (count > size) // Increase the pool.
+                AddObjectsToPool(count - size);
+            else
+            { // Destroy the excess, then shrink the pool.
+                for (int i = count; i < size; ++i)
+                {
+                    if (pool[i] == null) continue;
+                    Destroy(pool[i]);
+                }
+                pool.RemoveRange(count, size - count);
+                lastIndex = 0;
+            }
+            Debug.Log("[ObjectPool]: Resizing " + poolObjectName + " pool to " + size);
         }
 
         private void AddObjectsToPool(int count)
@@ -43,6 +65,7 @@ namespace BDArmory.Misc
 
         private void ReplacePoolObject(int index)
         {
+            Debug.Log("[ObjectPool]: Object of type " + poolObjectName + " was null at position " + index + ", replacing it.");
             GameObject obj = Instantiate(poolObject);
             obj.transform.SetParent(transform);
             obj.SetActive(false);
@@ -51,11 +74,6 @@ namespace BDArmory.Misc
 
         public GameObject GetPooledObject()
         {
-            if (!poolObject)
-            {
-                Debug.LogWarning("[ObjectPool]: Tried to instantiate a pool object but prefab is missing! (" + poolObjectName + ")");
-            }
-
             // Start at the last index returned and cycle round for efficiency. This makes this a typically O(1) seek operation.
             for (int i = lastIndex + 1; i < pool.Count; ++i)
             {
@@ -66,6 +84,7 @@ namespace BDArmory.Misc
                 if (!pool[i].activeInHierarchy)
                 {
                     lastIndex = i;
+                    if (disableAfterDelay > 0f) DisableAfterDelay(pool[i], disableAfterDelay);
                     return pool[i];
                 }
             }
@@ -78,6 +97,7 @@ namespace BDArmory.Misc
                 if (!pool[i].activeInHierarchy)
                 {
                     lastIndex = i;
+                    if (disableAfterDelay > 0f) DisableAfterDelay(pool[i], disableAfterDelay);
                     return pool[i];
                 }
             }
@@ -88,6 +108,7 @@ namespace BDArmory.Misc
                 Debug.Log("[ObjectPool]: Increasing pool size to " + size + " for " + poolObjectName);
                 AddObjectsToPool(size - pool.Count);
 
+                if (disableAfterDelay > 0f) DisableAfterDelay(pool[pool.Count - 1], disableAfterDelay);
                 return pool[pool.Count - 1]; // Return the last entry in the pool
             }
 
@@ -95,6 +116,7 @@ namespace BDArmory.Misc
             {
                 lastIndex = (lastIndex + 1) % pool.Count;
                 pool[lastIndex].SetActive(false);
+                if (disableAfterDelay > 0f) DisableAfterDelay(pool[lastIndex], disableAfterDelay);
                 return pool[lastIndex];
             }
 
@@ -116,12 +138,14 @@ namespace BDArmory.Misc
             }
         }
 
-        public static ObjectPool CreateObjectPool(GameObject obj, int size, bool canGrow, bool destroyOnLoad, bool disableAfterDelay = false, bool forceReUse = false)
+        public static ObjectPool CreateObjectPool(GameObject obj, int size, bool canGrow, bool destroyOnLoad, float disableAfterDelay = 0f, bool forceReUse = false)
         {
+            Debug.Log("[ObjectPool]: Creating object pool of size " + size + " for " + obj.name);
             GameObject poolObject = new GameObject(obj.name + "Pool");
             ObjectPool op = poolObject.AddComponent<ObjectPool>();
             op.poolObject = obj;
             op.canGrow = canGrow;
+            op.disableAfterDelay = disableAfterDelay;
             op.forceReUse = forceReUse;
             op.poolObjectName = obj.name;
             if (!destroyOnLoad)

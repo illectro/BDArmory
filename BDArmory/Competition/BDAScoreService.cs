@@ -304,7 +304,7 @@ namespace BDArmory.Competition
             rammedPartsOut.Clear();
 
             status = StatusType.SpawningVessels;
-            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y, BDArmorySettings.VESSEL_SPAWN_ALTITUDE, BDArmorySettings.VESSEL_SPAWN_DISTANCE_FACTOR, BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE, BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED, true, true, hash);
+            spawner.SpawnAllVesselsOnce(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y, BDArmorySettings.VESSEL_SPAWN_ALTITUDE, BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE ? BDArmorySettings.VESSEL_SPAWN_DISTANCE : BDArmorySettings.VESSEL_SPAWN_DISTANCE_FACTOR, BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE, BDArmorySettings.VESSEL_SPAWN_EASE_IN_SPEED, true, true, hash);
             while (spawner.vesselsSpawning)
                 yield return new WaitForFixedUpdate();
             if (!spawner.vesselSpawnSuccess)
@@ -379,9 +379,12 @@ namespace BDArmory.Competition
                 record.mis_parts_in = ComputeTotalMissilePartsIn(player.name);
                 record.mis_dmg_out = ComputeTotalMissileDamageOut(player.name);
                 record.mis_dmg_in = ComputeTotalMissileDamageIn(player.name);
+                record.wins = ComputeWins(player.name);
                 record.kills = ComputeTotalKills(player.name);
                 record.deaths = ComputeTotalDeaths(player.name);
                 record.assists = ComputeTotalAssists(player.name);
+                record.death_order = ComputeDeathOrder(player.name);
+                record.death_time = ComputeDeathTime(player.name);
                 if (longestHitDistance.ContainsKey(player.name))
                 {
                     record.distance = (float)longestHitDistance[player.name];
@@ -503,6 +506,41 @@ namespace BDArmory.Competition
                 result = assists[playerName];
             }
             return result;
+        }
+
+        private int ComputeWins(string playerName)
+        {
+            var stillAlive = !deaths.ContainsKey(playerName);
+            var livingCount = activePlayers.Count - deaths.Count;
+            return (stillAlive && livingCount == 1) ? 1 : 0;
+        }
+
+        private float ComputeDeathOrder(string playerName)
+        {
+            var deathOrder = BDACompetitionMode.Instance.DeathOrder;
+            if (deathOrder.ContainsKey(playerName))
+            {
+                var orderData = deathOrder[playerName];
+                return (float)orderData.Item1 / (float)activePlayers.Count;
+            }
+            else
+            {
+                return 0f;
+            }
+        }
+
+        private float ComputeDeathTime(string playerName)
+        {
+            var deathOrder = BDACompetitionMode.Instance.DeathOrder;
+            if (deathOrder.ContainsKey(playerName))
+            {
+                var orderData = deathOrder[playerName];
+                return (float)orderData.Item2;
+            }
+            else
+            {
+                return 0f;
+            }
         }
 
         public void TrackDamage(string attacker, string target, double damage)

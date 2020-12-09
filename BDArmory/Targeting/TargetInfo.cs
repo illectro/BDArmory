@@ -309,7 +309,8 @@ namespace BDArmory.Targeting
 
         public float TargetPriFriendliesEngaging(MissileFire myMf)
         {
-            float friendsEngaging = Mathf.Max(NumFriendliesEngaging(myMf.Team)-1,0);
+            if (myMf == null || myMf.wingCommander == null || myMf.wingCommander.friendlies == null) return 0;
+            float friendsEngaging = Mathf.Max(NumFriendliesEngaging(myMf.Team) - 1, 0);
             float teammates = myMf.wingCommander.friendlies.Count;
             if (teammates > 0)
                 return 1 - Mathf.Clamp(friendsEngaging / teammates, 0f, 1f); // Ranges from 0 to 1
@@ -351,7 +352,7 @@ namespace BDArmory.Targeting
         {
             var relativePosition = vessel.transform.position - myMF.vessel.transform.position;
             float theta = Vector3.Angle(myMF.vessel.srf_vel_direction, relativePosition);
-            return Mathf.Clamp(((Mathf.Pow(Mathf.Cos(theta / 2f), 2f) + 1f) * 100f / Mathf.Max(10f, relativePosition.magnitude))/2, 0, 1); // Ranges from 0 to 1, clamped at 1 for distances closer than 100m
+            return Mathf.Clamp(((Mathf.Pow(Mathf.Cos(theta / 2f), 2f) + 1f) * 100f / Mathf.Max(10f, relativePosition.magnitude)) / 2, 0, 1); // Ranges from 0 to 1, clamped at 1 for distances closer than 100m
         }
 
         public float TargetPriMass(MissileFire mf, MissileFire myMf) // Relative mass compared to our own mass
@@ -360,7 +361,7 @@ namespace BDArmory.Targeting
             {
                 float targetMass = mf.vessel.GetTotalMass();
                 float myMass = myMf.vessel.GetTotalMass();
-                return Mathf.Clamp(Mathf.Log10(targetMass / myMass)/2f, -1, 1); // Ranges -1 to 1, -1 if we are 100 times as heavy as target, 1 target is 100 times as heavy as us
+                return Mathf.Clamp(Mathf.Log10(targetMass / myMass) / 2f, -1, 1); // Ranges -1 to 1, -1 if we are 100 times as heavy as target, 1 target is 100 times as heavy as us
             }
             else
             {

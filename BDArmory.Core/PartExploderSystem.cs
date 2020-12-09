@@ -23,7 +23,6 @@ namespace BDArmory.Core
 
         public void Update()
         {
-            var timeNow = Time.time;
             if (ExplodingPartsQueue.Count == 0) return;
 
             do
@@ -33,8 +32,9 @@ namespace BDArmory.Core
                 if (part != null)
                 {
                     part.explode();
+                    // part.Die(); // DEBUG check whether part.explode() actually removes the part.
                 }
-            } while (Time.time - timeNow < Time.deltaTime && ExplodingPartsQueue.Count > 0);
+            } while (ExplodingPartsQueue.Count > 0);
         }
     }
 }

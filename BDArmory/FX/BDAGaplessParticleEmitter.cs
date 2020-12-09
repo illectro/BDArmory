@@ -41,6 +41,11 @@ namespace BDArmory.FX
             EffectBehaviour.AddParticleEmitter(pEmitter);
         }
 
+        void OnDestroy()
+        {
+            if (pEmitter) EffectBehaviour.RemoveParticleEmitter(pEmitter);
+        }
+
         void OnEnable()
         {
             lastPos = transform.position;

@@ -61,9 +61,8 @@ namespace BDArmory.FX
         private void OnDestroy()
         {
             foreach (var pe in gameObject.GetComponentsInChildren<KSPParticleEmitter>())
-            {
-                EffectBehaviour.RemoveParticleEmitter(pe);
-            }
+                if (pe)
+                    EffectBehaviour.RemoveParticleEmitter(pe);
         }
     }
 }

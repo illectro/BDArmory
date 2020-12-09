@@ -430,7 +430,7 @@ namespace BDArmory.Modules
                     DrawDebugLine(lookRay.origin, lookRay.origin + lookRay.direction * 10000, Color.magenta);
 
                 // Update heat target
-                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, targetHeatScore, lockedSensorFOV / 2, heatThreshold, allAspect, SourceVessel?.gameObject?.GetComponent<MissileFire>());
+                heatTarget = BDATargetManager.GetHeatTarget(SourceVessel, vessel, lookRay, targetHeatScore, lockedSensorFOV / 2, heatThreshold, allAspect, (SourceVessel != null ? SourceVessel.gameObject?.GetComponent<MissileFire>() : null)); // Unity messes with fake nulls and breaks ?. operators sometimes.
 
                 if (heatTarget.exists)
                 {

@@ -1030,7 +1030,7 @@ namespace BDArmory.Modules
         {
             while (true)
             {
-                using (List<Vessel>.Enumerator v = BDATargetManager.LoadedVessels.GetEnumerator())
+                using (var v = BDATargetManager.LoadedVessels.GetEnumerator())
                     while (v.MoveNext())
                     {
                         if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;

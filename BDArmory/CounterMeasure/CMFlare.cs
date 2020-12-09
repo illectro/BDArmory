@@ -73,24 +73,23 @@ namespace BDArmory.CounterMeasure
 
                 pEmitters = new List<KSPParticleEmitter>();
 
-                IEnumerator<KSPParticleEmitter> pe = gameObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator();
-                while (pe.MoveNext())
-                {
-                    if (pe.Current == null) continue;
-                    if (pe.Current.useWorldSpace)
+                using (var pe = gameObject.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator())
+                    while (pe.MoveNext())
                     {
-                        BDAGaplessParticleEmitter gpe = pe.Current.gameObject.AddComponent<BDAGaplessParticleEmitter>();
-                        gaplessEmitters.Add(gpe);
-                        gpe.emit = true;
+                        if (pe.Current == null) continue;
+                        if (pe.Current.useWorldSpace)
+                        {
+                            BDAGaplessParticleEmitter gpe = pe.Current.gameObject.AddComponent<BDAGaplessParticleEmitter>();
+                            gaplessEmitters.Add(gpe);
+                            gpe.emit = true;
+                        }
+                        else
+                        {
+                            EffectBehaviour.AddParticleEmitter(pe.Current);
+                            pEmitters.Add(pe.Current);
+                            pe.Current.emit = true;
+                        }
                     }
-                    else
-                    {
-                        EffectBehaviour.AddParticleEmitter(pe.Current);
-                        pEmitters.Add(pe.Current);
-                        pe.Current.emit = true;
-                    }
-                }
-                pe.Dispose();
             }
             List<BDAGaplessParticleEmitter>.Enumerator gEmitter = gaplessEmitters.GetEnumerator();
             while (gEmitter.MoveNext())

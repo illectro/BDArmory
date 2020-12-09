@@ -1,11 +1,17 @@
 from pathlib import Path
-log_dir = Path(__file__).parent / "Logs"
+import argparse
+
+parser = argparse.ArgumentParser(description="Log-file parser for continuous spawning logs.", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument("logs", nargs='*', help="Log-files to parse. If none are given, all valid log-files are parsed.")
+args = parser.parse_args()
+
+log_dir = Path(__file__).parent / "Logs" if len(args.logs) == 0 else Path('.')
 output_log_file = log_dir / "results.csv"
 
 craft_data = []
-competition_files = [filename for filename in Path.iterdir(log_dir) if filename.suffix in (".log", ".txt")]  # Pre-scan the files in case something changes (iterators don't like that).
+competition_files = [Path(filename) for filename in args.logs if filename.endswith(".log")] if len(args.logs) > 0 else [filename for filename in Path.iterdir(log_dir) if filename.suffix in (".log", ".txt")]  # Pre-scan the files in case something changes (iterators don't like that).
 for filename in competition_files:
-	with open(log_dir / filename, "r") as file_data:
+	with open(log_dir / filename if len(args.logs) == 0 else filename, "r") as file_data:
 		Craft_Name = ""
 		Kills = 0
 		Hits = 0
@@ -44,14 +50,14 @@ for filename in competition_files:
 				craft_data[-1][5] = Shots
 
 		for WHOSHOTME in Who_Shot_Me_Lines:  # Counts up assists
-			#for shooter_round in WHOSHOTME.split(","):
+			# for shooter_round in WHOSHOTME.split(","):
 			for shooter_hits in WHOSHOTME.split(";"):
 				shooter = shooter_hits.split(":")[-1]
 				for person_index in range(len(craft_data)):
 					if shooter == craft_data[person_index][0]:
 						craft_data[person_index][2] += 1
 		for WHOSHOTME in Who_Damaged_Me_Lines:  # Counts up damage
-			#for shooter_round in WHOSHOTME.split(","):
+			# for shooter_round in WHOSHOTME.split(","):
 			for shooter_hits in WHOSHOTME.split(";"):
 				shooter = shooter_hits.split(":")[-1]
 				damage = float(shooter_hits.split(":")[-2])
@@ -65,10 +71,10 @@ for filename in competition_files:
 					craft_data[person_index][1] += 1
 		for i in range(len(craft_data)):
 			craft_data[i][6] = int(craft_data[i][6])
-			craft_data[i][7] = int(10000*craft_data[i][4]/craft_data[i][5] if craft_data[i][5]>0 else 0)/100
-			craft_data[i][8] = round(1 * craft_data[i][1] + .2 * craft_data[i][2] - .1 * craft_data[i][3] + .01 * craft_data[i][3], 8)
-			craft_data[i][9] = int(100*craft_data[i][4]/(1+craft_data[i][3]))/100
-			craft_data[i][10] = int(craft_data[i][6]/(1+craft_data[i][3]))
+			craft_data[i][7] = int(10000 * craft_data[i][4] / craft_data[i][5] if craft_data[i][5] > 0 else 0) / 100
+			craft_data[i][8] = round(3 * craft_data[i][1] + 1 * craft_data[i][2] - 3 * craft_data[i][3] + .001 * craft_data[i][4], 8)
+			craft_data[i][9] = int(100 * craft_data[i][4] / (1 + craft_data[i][3])) / 100
+			craft_data[i][10] = int(craft_data[i][6] / (1 + craft_data[i][3]))
 
 if len(craft_data) > 0:
 	# Write results to console
@@ -79,6 +85,7 @@ if len(craft_data) > 0:
 
 	# Write results to file
 	with open(output_log_file, "w") as results_data:
+		results_data.write("Name,Kills,Assists,Deaths,Hits,Shots,Damage,Acc,Score,Hits/Sp,Dmg/Sp\n")
 		for item in sorted(craft_data, key=lambda item: item[0]):
 			results_data.write(','.join(str(part) for part in item) + "\n")
 else:

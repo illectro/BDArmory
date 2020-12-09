@@ -723,7 +723,7 @@
     <PostBuildEvent Condition="'$(OS)' != 'Windows_NT' ">
       echo $(Targetname)
       export ModName=BDArmory
-      echo Copying assemblies to Distribution $(Targetname) files...
+      echo Copying $(ConfigurationName) assemblies to Distribution $(Targetname) files...
       mkdir -p "$(ProjectDir)/Distribution/GameData/${ModName}/Plugins/"
       cp -a "$(TargetDir)"BDArmory*.dll "$(ProjectDir)Distribution/GameData/${ModName}/Plugins/"
       if [ "$(ConfigurationName)" = "Debug" ]

@@ -15,17 +15,19 @@ args = parser.parse_args()
 folder = Path(args.folder)
 if not folder.exists():
     raise ValueError(f"The folder ({folder}) doesn't exist.")
-teams = {f.name: [str(c.resolve()) for c in f.glob("*.craft")] for f in folder.iterdir() if f.is_dir() and f.name[0] != '_'}  # Find all the teams
-individuals = [str(c.resolve()) for f in folder.iterdir() if f.is_dir() and f.name[0] == '_' for c in f.glob("*.craft")]  # Find all the individuals
-print(f"Found {len(teams)} teams and {len(individuals)} of individuals:")
+teams = {f.name: [str(c.resolve()) for c in f.glob("*.craft")] for f in folder.iterdir() if f.is_dir()}  # Find all the teams
+# teams = {f.name: [str(c.resolve()) for c in f.glob("*.craft")] for f in folder.iterdir() if f.is_dir() and f.name[0] != '_'}  # Find all the teams
+# individuals = [str(c.resolve()) for f in folder.iterdir() if f.is_dir() and f.name[0] == '_' for c in f.glob("*.craft")]  # Find all the individuals
+print(f"Found {len(teams)} teams:")
+# print(f"Found {len(teams)} teams and {len(individuals)} of individuals:")
 for team in teams:
     print(f" - {team} has {len(teams[team])} players,")
-print(f" - and {len(individuals)} individual players.")
+# print(f" - and {len(individuals)} individual players.")
 print(f"Generating tournament.state file for {args.rounds} rounds with {len(teams)*(len(teams)-1)//2} heats per round (each team against another) and {args.perTeam} vessels per team per heat.")
 
 tournamentHeader = json.dumps({
     "tournamentID": 4,  # Has to be a number
-    "craftFiles": [craftFile for team in teams for craftFile in teams[team]] + individuals
+    "craftFiles": [craftFile for team in teams for craftFile in teams[team]] # + individuals
 }, separators=(',', ':'))
 
 roundConfig = {"latitude": -0.04762, "longitude": -74.8593, "altitude": 5000.0, "distance": 20.0, "absDistanceOrFactor": False, "easeInSpeed": 0.7, "killEverythingFirst": True, "assignTeams": False, "folder": "", "round": 2, "heat": 1, "completed": False}
@@ -48,27 +50,28 @@ def getTeamSelection(team: str, N: int) -> List[str]:
                     residue.append(craftFile)
             for craftFile in residue:  # Add crafts that had already been selected to the queue last.
                 teamQueues[team].put(craftFile)
-        if len(selection) < len(teams[team]):  # Still a craft in the queue that we haven't used yet.
-            selection.append(teamQueues[team].get())
-        else:
-            fillWithIndividuals(selection, N)
+        # if len(selection) < len(teams[team]):  # Still a craft in the queue that we haven't used yet.
+        #     selection.append(teamQueues[team].get())
+        # else:
+        #     fillWithIndividuals(selection, N)
+        selection.append(teamQueues[team].get())
     return selection
 
 
-def fillWithIndividuals(selection: List[str], N: int):
-    global individualsQueue, individuals
-    while len(selection) < N:
-        while individualsQueue.qsize() < 1:  # Not enough in the queue, extend it with randomised ordering of craft in the team.
-            random.shuffle(individuals)
-            residue = []
-            for craftFile in individuals:
-                if craftFile not in selection:  # Avoid duplicates in the same heat.
-                    individualsQueue.put(craftFile)
-                else:
-                    residue.append(craftFile)
-            for craftFile in residue:  # Add crafts that had already been selected to the queue last.
-                individualsQueue.put(craftFile)
-        selection.append(individualsQueue.get())
+# def fillWithIndividuals(selection: List[str], N: int):
+#     global individualsQueue, individuals
+#     while len(selection) < N:
+#         while individualsQueue.qsize() < 1:  # Not enough in the queue, extend it with randomised ordering of craft in the team.
+#             random.shuffle(individuals)
+#             residue = []
+#             for craftFile in individuals:
+#                 if craftFile not in selection:  # Avoid duplicates in the same heat.
+#                     individualsQueue.put(craftFile)
+#                 else:
+#                     residue.append(craftFile)
+#             for craftFile in residue:  # Add crafts that had already been selected to the queue last.
+#                 individualsQueue.put(craftFile)
+#         selection.append(individualsQueue.get())
 
 
 with open('tournament.state', 'w') as f:
@@ -82,7 +85,8 @@ with open('tournament.state', 'w') as f:
                 roundConfig.update({"craftFiles": getTeamSelection(team1, args.perTeam) + getTeamSelection(team2, args.perTeam)})
                 heats.append({k: v for k, v in roundConfig.items()})
 
-        random.shuffle(heats)  # Shuffle the heat order to avoid watching the same team play too much in a row.
+        for i in range(10): # Shuffle doesn't seem especially random, so do it 10 times.
+            random.shuffle(heats)  # Shuffle the heat order to avoid watching the same team play too much in a row.
         for heat, heatConfig in enumerate(heats):
             heatConfig.update({"round": round, "heat": heat})
 

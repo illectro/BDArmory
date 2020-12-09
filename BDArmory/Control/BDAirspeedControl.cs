@@ -145,7 +145,7 @@ namespace BDArmory.Control
 
             float vesselMass = vessel.GetTotalMass();
 
-            float accel = maxThrust / vesselMass;
+            float accel = maxThrust / vesselMass; // This assumes that all thrust is in the same direction.
 
             //estimate drag
             float estimatedCurrentAccel = finalThrust / vesselMass - GravAccel();
@@ -154,7 +154,7 @@ namespace BDArmory.Control
             float accelError = (actualCurrentAccel - estimatedCurrentAccel); // /2 -- why divide by 2 here?
             dragAccel = accelError;
 
-            possibleAccel += accel;
+            possibleAccel += accel; // This assumes that the acceleration from engines is in the same direction as the original possibleAccel.
 
             //use multimode afterburner for extra accel if lacking
             using (List<MultiModeEngine>.Enumerator mmes = multiModeEngines.GetEnumerator())
@@ -195,7 +195,7 @@ namespace BDArmory.Control
         float GravAccel()
         {
             Vector3 geeVector = FlightGlobals.getGeeForceAtPosition(vessel.CoM);
-            float gravAccel = geeVector.magnitude * Mathf.Cos(Mathf.Deg2Rad * Vector3.Angle(-geeVector, vessel.velocityD));
+            float gravAccel = geeVector.magnitude * Mathf.Cos(Mathf.Deg2Rad * Vector3.Angle(-geeVector, vessel.velocityD)); // -g.v/|v| ???
             return gravAccel;
         }
 

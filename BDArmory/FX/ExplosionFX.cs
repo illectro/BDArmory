@@ -15,11 +15,12 @@ namespace BDArmory.FX
 {
     public class ExplosionFx : MonoBehaviour
     {
-        public KSPParticleEmitter[] PEmitters { get; set; }
+        public static Dictionary<string, ObjectPool> explosionFXPools = new Dictionary<string, ObjectPool>();
+        public KSPParticleEmitter[] pEmitters { get; set; }
         public Light LightFx { get; set; }
         public float StartTime { get; set; }
         public AudioClip ExSound { get; set; }
-        public AudioSource AudioSource { get; set; }
+        public AudioSource audioSource { get; set; }
         private float MaxTime { get; set; }
         public float Range { get; set; }
         public float Caliber { get; set; }
@@ -42,38 +43,39 @@ namespace BDArmory.FX
 
         private float particlesMaxEnergy;
 
-        public static Queue<ExplosionFx> ExplosionsLoaded = new Queue<ExplosionFx>();
-
-        private void Start()
+        private void OnEnable()
         {
-            ExplosionsLoaded.Enqueue(this);
             StartTime = Time.time;
             MaxTime = (Range / ExplosionVelocity) * 3f;
             CalculateBlastEvents();
-            PEmitters = gameObject.GetComponentsInChildren<KSPParticleEmitter>();
-            IEnumerator<KSPParticleEmitter> pe = PEmitters.AsEnumerable().GetEnumerator();
-            while (pe.MoveNext())
-            {
-                if (pe.Current == null) continue;
-                EffectBehaviour.AddParticleEmitter(pe.Current);
-                pe.Current.emit = true;
-                if (pe.Current.maxEnergy > particlesMaxEnergy)
+            pEmitters = gameObject.GetComponentsInChildren<KSPParticleEmitter>();
+            using (var pe = pEmitters.AsEnumerable().GetEnumerator())
+                while (pe.MoveNext())
                 {
-                    particlesMaxEnergy = pe.Current.maxEnergy;
+                    if (pe.Current == null) continue;
+                    EffectBehaviour.AddParticleEmitter(pe.Current);
+                    pe.Current.emit = true;
+                    if (pe.Current.maxEnergy > particlesMaxEnergy)
+                    {
+                        particlesMaxEnergy = pe.Current.maxEnergy;
+                    }
                 }
-            }
-            pe.Dispose();
 
-            LightFx = gameObject.AddComponent<Light>();
-            LightFx.color = Misc.Misc.ParseColor255("255,238,184,255");
-            LightFx.intensity = 8;
+            LightFx = gameObject.GetComponent<Light>();
             LightFx.range = Range * 3f;
-            LightFx.shadows = LightShadows.None;
 
             if (BDArmorySettings.DRAW_DEBUG_LABELS)
             {
                 Debug.Log("[BDArmory]:Explosion started tntMass: {" + Power + "}  BlastRadius: {" + Range + "} StartTime: {" + StartTime + "}, Duration: {" + MaxTime + "}");
             }
+        }
+
+        void OnDisable()
+        {
+            foreach (var pe in pEmitters)
+                if (pe != null)
+                    pe.emit = false;
+            ExplosivePart = null; // Clear the Part reference.
         }
 
         private void CalculateBlastEvents()
@@ -287,27 +289,23 @@ namespace BDArmory.FX
         public void Update()
         {
             if (LightFx != null) LightFx.intensity -= 12 * Time.deltaTime;
-            if (TimeIndex > 0.2f && PEmitters != null)
+            if (TimeIndex > 0.2f && pEmitters != null)
             {
-                IEnumerator<KSPParticleEmitter> pe = PEmitters.AsEnumerable().GetEnumerator();
-                while (pe.MoveNext())
+                foreach (var pe in pEmitters)
                 {
-                    if (pe.Current == null) continue;
-                    pe.Current.emit = false;
+                    if (pe == null) continue;
+                    pe.emit = false;
                 }
-                pe.Dispose();
             }
 
             if (ExplosionEvents.Count == 0 && TimeIndex > 2f * MaxTime)
             {
                 if (BDArmorySettings.DRAW_DEBUG_LABELS)
                 {
-                    Debug.Log(
-                        "[BDArmory]:Explosion Finished");
+                    Debug.Log("[BDArmory]:Explosion Finished");
                 }
 
-                ExplosionsLoaded.Dequeue();
-                Destroy(gameObject);
+                gameObject.SetActive(false);
                 return;
             }
         }
@@ -346,7 +344,7 @@ namespace BDArmory.FX
             if (building)
             {
                 var distanceFactor = Mathf.Clamp01((Range - eventToExecute.Distance) / Range);
-                float damageToBuilding = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_BALLISTIC * Power * distanceFactor;
+                float damageToBuilding = (BDArmorySettings.DMG_MULTIPLIER / 100) * BDArmorySettings.EXP_DMG_MOD_BALLISTIC_NEW * Power * distanceFactor;
 
                 damageToBuilding *= 2f;
 
@@ -414,6 +412,7 @@ namespace BDArmory.FX
                         eventToExecute.HitPoint + part.rb.velocity * TimeIndex);
 
                     var damage = part.AddExplosiveDamage(blastInfo.Damage, Caliber, ExplosionSource);
+                    // Debug.Log("DEBUG Explosive damage to " + part + ": " + damage + ", calibre: " + Caliber + ", source: " + ExplosionSource);
 
                     // Update scoring structures
                     switch (ExplosionSource)
@@ -475,11 +474,33 @@ namespace BDArmory.FX
             }
         }
 
+        // We use an ObjectPool for the ExplosionFx instances as they leak KSPParticleEmitters otherwise.
+        static void CreateObjectPool(string explModelPath, string soundPath)
+        {
+            var key = explModelPath + soundPath;
+            if (!explosionFXPools.ContainsKey(key) || explosionFXPools[key] == null)
+            {
+                var explosionFXTemplate = GameDatabase.Instance.GetModel(explModelPath);
+                var soundClip = GameDatabase.Instance.GetAudioClip(soundPath);
+                var eFx = explosionFXTemplate.AddComponent<ExplosionFx>();
+                eFx.ExSound = soundClip;
+                eFx.audioSource = explosionFXTemplate.AddComponent<AudioSource>();
+                eFx.audioSource.minDistance = 200;
+                eFx.audioSource.maxDistance = 5500;
+                eFx.audioSource.spatialBlend = 1;
+                eFx.LightFx = explosionFXTemplate.AddComponent<Light>();
+                eFx.LightFx.color = Misc.Misc.ParseColor255("255,238,184,255");
+                eFx.LightFx.intensity = 8;
+                eFx.LightFx.shadows = LightShadows.None;
+
+                explosionFXTemplate.SetActive(false);
+                explosionFXPools[key] = ObjectPool.CreateObjectPool(explosionFXTemplate, 10, true, true, 0f, false);
+            }
+        }
+
         public static void CreateExplosion(Vector3 position, float tntMassEquivalent, string explModelPath, string soundPath, ExplosionSourceType explosionSourceType, float caliber = 0, Part explosivePart = null, string sourceVesselName = null, Vector3 direction = default(Vector3))
         {
-            if (ExplosionsLoaded.Count > 5) return;
-            var go = GameDatabase.Instance.GetModel(explModelPath);
-            var soundClip = GameDatabase.Instance.GetAudioClip(soundPath);
+            CreateObjectPool(explModelPath, soundPath);
 
             Quaternion rotation;
             if (direction == default(Vector3))
@@ -491,13 +512,9 @@ namespace BDArmory.FX
                 rotation = Quaternion.LookRotation(direction);
             }
 
-            GameObject newExplosion = (GameObject)Instantiate(go, position, rotation);
-            ExplosionFx eFx = newExplosion.AddComponent<ExplosionFx>();
-            eFx.ExSound = soundClip;
-            eFx.AudioSource = newExplosion.AddComponent<AudioSource>();
-            eFx.AudioSource.minDistance = 200;
-            eFx.AudioSource.maxDistance = 5500;
-            eFx.AudioSource.spatialBlend = 1;
+            GameObject newExplosion = explosionFXPools[explModelPath + soundPath].GetPooledObject();
+            newExplosion.transform.SetPositionAndRotation(position, rotation);
+            ExplosionFx eFx = newExplosion.GetComponent<ExplosionFx>();
             eFx.Range = BlastPhysicsUtils.CalculateBlastRange(tntMassEquivalent);
             eFx.Position = position;
             eFx.Power = tntMassEquivalent;
@@ -506,21 +523,20 @@ namespace BDArmory.FX
             eFx.Caliber = caliber;
             eFx.ExplosivePart = explosivePart;
             eFx.Direction = direction;
-
+            eFx.pEmitters = newExplosion.GetComponentsInChildren<KSPParticleEmitter>();
+            eFx.audioSource = newExplosion.GetComponent<AudioSource>();
             if (tntMassEquivalent <= 5)
             {
-                eFx.AudioSource.minDistance = 4f;
-                eFx.AudioSource.maxDistance = 3000;
-                eFx.AudioSource.priority = 9999;
+                eFx.audioSource.minDistance = 4f;
+                eFx.audioSource.maxDistance = 3000;
+                eFx.audioSource.priority = 9999;
             }
             newExplosion.SetActive(true);
-            IEnumerator<KSPParticleEmitter> pe = newExplosion.GetComponentsInChildren<KSPParticleEmitter>().Cast<KSPParticleEmitter>().GetEnumerator();
-            while (pe.MoveNext())
+            foreach (var pe in eFx.pEmitters)
             {
-                if (pe.Current == null) continue;
-                pe.Current.emit = true;
+                if (pe == null) continue;
+                pe.emit = true;
             }
-            pe.Dispose();
         }
 
         public static void AddForceAtPosition(Rigidbody rb, Vector3 force, Vector3 position)

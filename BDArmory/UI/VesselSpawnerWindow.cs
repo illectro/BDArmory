@@ -403,8 +403,10 @@ namespace BDArmory.UI
                 GUI.Label(SLeftRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentFilesLocation")} (AutoSpawn/): ", leftLabel); // Craft files location
                 BDArmorySettings.TOURNAMENT_FILES_LOCATION = GUI.TextField(SRightRect(line), BDArmorySettings.TOURNAMENT_FILES_LOCATION);
 
+                var value = BDArmorySettings.TOURNAMENT_ROUNDS < 21 ? BDArmorySettings.TOURNAMENT_ROUNDS : (16 + BDArmorySettings.TOURNAMENT_ROUNDS / 5);
                 GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentRounds")}:  ({BDArmorySettings.TOURNAMENT_ROUNDS})", leftLabel); // Rounds
-                BDArmorySettings.TOURNAMENT_ROUNDS = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_ROUNDS, 1f, 20f);
+                value = (int)GUI.HorizontalSlider(SRightSliderRect(line), value, 1f, 36f);
+                BDArmorySettings.TOURNAMENT_ROUNDS = value < 21 ? value : (value - 16) * 5;
 
                 GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentVesselsPerHeat")}:  ({(BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT > 1 ? BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT.ToString() : "Inf")})", leftLabel); // Vessels Per Heat
                 BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT, 1f, 20f);

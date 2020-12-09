@@ -554,8 +554,7 @@ namespace BDArmory.Modules
                 Transform currentRocketTfm = rockets[rocketsLeft - 1];
 
                 GameObject rocketObj = GameDatabase.Instance.GetModel(rocketModelPath);
-                rocketObj =
-                    (GameObject)Instantiate(rocketObj, currentRocketTfm.position, currentRocketTfm.parent.rotation);
+                rocketObj = (GameObject)Instantiate(rocketObj, currentRocketTfm.position, currentRocketTfm.parent.rotation);
                 rocketObj.transform.rotation = currentRocketTfm.parent.rotation;
                 rocketObj.transform.localScale = part.rescaleFactor * Vector3.one;
                 currentRocketTfm.localScale = Vector3.zero;

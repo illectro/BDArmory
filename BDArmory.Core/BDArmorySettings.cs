@@ -40,7 +40,7 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static bool DEFAULT_FFA_TARGETING = false;            // Free-for-all combat style instead of teams (changes target selection behaviour)
         [BDAPersistantSettingsField] public static bool DEBUG_RAMMING_LOGGING = false;            // Controls whether ramming logging debug information is printed to the Debug.Log
         [BDAPersistantSettingsField] public static bool PERFORMANCE_LOGGING = false;
-        [BDAPersistantSettingsField] public static bool RUNWAY_PROJECT = false;                    // Enable/disable Runway Project specific enhancements. FIXME Default to true for now. Later, default to false for official BDArmory release.
+        [BDAPersistantSettingsField] public static bool RUNWAY_PROJECT = false;                    // Enable/disable Runway Project specific enhancements.
         [BDAPersistantSettingsField] public static bool DISABLE_KILL_TIMER = true;                //disables the kill timers.
         [BDAPersistantSettingsField] public static bool DUMB_IR_SEEKERS = false;                  // IR missiles will go after hottest thing they can see
         [BDAPersistantSettingsField] public static bool AUTOCATEGORIZE_PARTS = true;
@@ -80,9 +80,12 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static float DMG_MULTIPLIER = 100f;
         [BDAPersistantSettingsField] public static float BALLISTIC_DMG_FACTOR = 1.55f;
         [BDAPersistantSettingsField] public static float HITPOINT_MULTIPLIER = 3.0f;
-        [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC = 1.125f;
+        [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC_NEW = 0.5f; //1.125f;
         [BDAPersistantSettingsField] public static float EXP_DMG_MOD_MISSILE = 6.75f;
+        // [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC = 1.125f;
+        // [BDAPersistantSettingsField] public static float EXP_DMG_MOD_MISSILE = 6.75f;
         [BDAPersistantSettingsField] public static float EXP_IMP_MOD = 0.25f;
+        [BDAPersistantSettingsField] public static bool EXTRA_DAMAGE_SLIDERS = false;
 
         // FX
         [BDAPersistantSettingsField] public static bool FIRE_FX_IN_FLIGHT = false;
@@ -129,7 +132,7 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING = false; // Spawn craft again after single spawn competition finishes.
         [BDAPersistantSettingsField] public static bool VESSEL_SPAWN_DUMP_LOG_EVERY_SPAWN = false; // Dump competition scores every time a vessel spawns.
         [BDAPersistantSettingsField] public static bool SHOW_SPAWN_LOCATIONS = false;              // Show the interesting spawn locations.
-        
+
         // Tournament settings
         [BDAPersistantSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
         [BDAPersistantSettingsField] public static string TOURNAMENT_FILES_LOCATION = "";          // Tournament files location (under AutoSpawn).

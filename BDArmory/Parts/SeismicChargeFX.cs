@@ -101,6 +101,7 @@ namespace BDArmory.Parts
                     hitBuilding.Demolish();
                 }
             }
+            Destroy(gameObject);
         }
 
         public static void CreateSeismicExplosion(Vector3 pos, Quaternion rot)

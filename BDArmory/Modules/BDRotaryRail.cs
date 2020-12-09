@@ -314,26 +314,25 @@ namespace BDArmory.Modules
                 rails.Add(newRail.transform);
             }
 
-            IEnumerator<Transform> mt = part.FindModelTransform("rotaryBombBay").GetComponentsInChildren<Transform>().AsEnumerable().GetEnumerator();
-            while (mt.MoveNext())
-            {
-                if (mt.Current == null) continue;
-                switch (mt.Current.name)
+            using (var mt = part.FindModelTransform("rotaryBombBay").GetComponentsInChildren<Transform>().AsEnumerable().GetEnumerator())
+                while (mt.MoveNext())
                 {
-                    case "lengthTransform":
-                        lengthTransforms.Add(mt.Current);
-                        break;
+                    if (mt.Current == null) continue;
+                    switch (mt.Current.name)
+                    {
+                        case "lengthTransform":
+                            lengthTransforms.Add(mt.Current);
+                            break;
 
-                    case "heightTransform":
-                        heightTransforms.Add(mt.Current);
-                        break;
+                        case "heightTransform":
+                            heightTransforms.Add(mt.Current);
+                            break;
 
-                    case "rotationTransform":
-                        rotationTransforms.Add(mt.Current);
-                        break;
+                        case "rotationTransform":
+                            rotationTransforms.Add(mt.Current);
+                            break;
+                    }
                 }
-            }
-            mt.Dispose();
         }
 
         public override void OnStart(StartState state)

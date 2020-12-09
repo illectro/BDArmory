@@ -34,8 +34,9 @@ namespace BDArmory.UI
         private readonly float _titleHeight = 30;
         private double lastCameraSwitch = 0;
         private double lastCameraCheck = 0;
-        private bool lostActiveVessel = false;
         private Vessel lastActiveVessel = null;
+        private bool currentVesselDied = false;
+        private double currentVesselDiedAt = 0;
         private float updateTimer = 0;
 
         //gui params
@@ -63,8 +64,11 @@ namespace BDArmory.UI
 
         private static System.Random rng;
 
-        static LoadedVesselSwitcher()
+        private void Awake()
         {
+            if (Instance)
+                Destroy(this);
+            Instance = this;
 
             redLight.normal.textColor = Color.red;
             yellowLight.normal.textColor = Color.yellow;
@@ -81,13 +85,6 @@ namespace BDArmory.UI
             rng = new System.Random();
         }
 
-        private void Awake()
-        {
-            if (Instance)
-                Destroy(this);
-            Instance = this;
-        }
-
         private void Start()
         {
             UpdateList();
@@ -95,6 +92,7 @@ namespace BDArmory.UI
             GameEvents.onVesselDestroy.Add(VesselEventUpdate);
             GameEvents.onVesselGoOffRails.Add(VesselEventUpdate);
             GameEvents.onVesselGoOnRails.Add(VesselEventUpdate);
+            GameEvents.onVesselWillDestroy.Add(CurrentVesselWillDestroy);
             MissileFire.OnChangeTeam += MissileFireOnToggleTeam;
 
             _ready = false;
@@ -115,6 +113,7 @@ namespace BDArmory.UI
             GameEvents.onVesselDestroy.Remove(VesselEventUpdate);
             GameEvents.onVesselGoOffRails.Remove(VesselEventUpdate);
             GameEvents.onVesselGoOnRails.Remove(VesselEventUpdate);
+            GameEvents.onVesselWillDestroy.Remove(CurrentVesselWillDestroy);
             MissileFire.OnChangeTeam -= MissileFireOnToggleTeam;
 
             _ready = false;
@@ -187,7 +186,7 @@ namespace BDArmory.UI
         {
             weaponManagers.Clear();
 
-            using (List<Vessel>.Enumerator v = FlightGlobals.Vessels.GetEnumerator())
+            using (var v = FlightGlobals.Vessels.GetEnumerator())
                 while (v.MoveNext())
                 {
                     if (v.Current == null || !v.Current.loaded || v.Current.packed)
@@ -800,14 +799,33 @@ namespace BDArmory.UI
                 ForceSwitchVessel(previousVessel);
         }
 
+        void CurrentVesselWillDestroy(Vessel v)
+        {
+            if (_autoCameraSwitch && lastActiveVessel == v)
+            {
+                currentVesselDied = true;
+                currentVesselDiedAt = Planetarium.GetUniversalTime();
+            }
+        }
+
         private void UpdateCamera()
         {
-            double timeSinceLastCheck = Planetarium.GetUniversalTime() - lastCameraCheck;
-
+            var now = Planetarium.GetUniversalTime();
+            double timeSinceLastCheck = now - lastCameraCheck;
+            if (currentVesselDied)
+            {
+                if (now - currentVesselDiedAt < BDArmorySettings.CAMERA_SWITCH_FREQUENCY / 2) // Prevent camera changes for a bit.
+                    return;
+                else
+                {
+                    currentVesselDied = false;
+                    lastCameraSwitch = 0;
+                }
+            }
 
             if (timeSinceLastCheck > 0.25)
             {
-                lastCameraCheck = Planetarium.GetUniversalTime();
+                lastCameraCheck = now;
 
                 // first check to see if we've changed the vessel recently
                 if (lastActiveVessel != null)
@@ -815,18 +833,17 @@ namespace BDArmory.UI
                     if (!lastActiveVessel.isActiveVessel)
                     {
                         // active vessel was changed 
-                        lastCameraSwitch = Planetarium.GetUniversalTime();
-                        lostActiveVessel = false;
+                        lastCameraSwitch = now;
                     }
                 }
                 lastActiveVessel = FlightGlobals.ActiveVessel;
-                double timeSinceChange = Planetarium.GetUniversalTime() - lastCameraSwitch;
+                double timeSinceChange = now - lastCameraSwitch;
 
                 float bestScore = 10000000;
                 Vessel bestVessel = null;
                 bool foundActiveVessel = false;
                 // redo the math
-                using (List<Vessel>.Enumerator v = FlightGlobals.Vessels.GetEnumerator())
+                using (var v = FlightGlobals.Vessels.GetEnumerator())
                     // check all the planes
                     while (v.MoveNext())
                     {
@@ -850,14 +867,14 @@ namespace BDArmory.UI
                                     {
                                         var currentParts = v.Current.parts.Count;
                                         var vdat = BDACompetitionMode.Instance.Scores[vesselName];
-                                        if (Planetarium.GetUniversalTime() - vdat.lastLostPartTime < 5d) // Lost parts within the last 5s.
+                                        if (now - vdat.lastLostPartTime < 5d) // Lost parts within the last 5s.
                                         {
                                             recentlyDamaged = true;
                                         }
 
                                         if (vdat.landedState)
                                         {
-                                            var timeSinceLanded = Planetarium.GetUniversalTime() - vdat.lastLandedTime;
+                                            var timeSinceLanded = now - vdat.lastLandedTime;
                                             if (timeSinceLanded < 2)
                                             {
                                                 recentlyLanded = true;
@@ -947,26 +964,15 @@ namespace BDArmory.UI
                     }
                 if (!foundActiveVessel)
                 {
-                    if (!lostActiveVessel)
+                    var score = 100 * timeSinceChange;
+                    if (score < bestScore)
                     {
-                        // the active vessel is no longer in our list, so it probably just got shot
-                        // we need to make sure we follow it for a few seconds
-                        lastCameraSwitch = Planetarium.GetUniversalTime();
-                        timeSinceChange = 0;
-                        lostActiveVessel = true;
-                    }
-                    else
-                    {
-                        var score = 100 * timeSinceChange;
-                        if (score < bestScore)
-                        {
-                            bestVessel = null; // stop switching
-                        }
+                        bestVessel = null; // stop switching
                     }
                 }
                 if (timeSinceChange > BDArmorySettings.CAMERA_SWITCH_FREQUENCY)
                 {
-                    if (bestVessel != null && !(bestVessel.isActiveVessel)) // if a vessel dies it'll use a default score for a few seconds
+                    if (bestVessel != null && bestVessel.loaded && !bestVessel.packed && !(bestVessel.isActiveVessel)) // if a vessel dies it'll use a default score for a few seconds
                     {
                         Debug.Log("[BDArmory]: Switching vessel to " + bestVessel.GetDisplayName());
                         ForceSwitchVessel(bestVessel);
@@ -978,8 +984,9 @@ namespace BDArmory.UI
         // Extracted method, so we dont have to call these two lines everywhere
         public void ForceSwitchVessel(Vessel v)
         {
+            if (v == null || !v.loaded)
+                return;
             lastCameraSwitch = Planetarium.GetUniversalTime();
-            lostActiveVessel = false;
             FlightGlobals.ForceSetActiveVessel(v);
             FlightInputHandler.ResumeVesselCtrlState(v);
         }

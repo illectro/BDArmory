@@ -395,48 +395,43 @@ namespace BDArmory.Modules
 
                 if (!string.IsNullOrEmpty(exhaustPrefabPath))
                 {
-                    IEnumerator<Transform> t = part.FindModelTransforms("exhaustTransform").AsEnumerable().GetEnumerator();
-
-                    while (t.MoveNext())
-                    {
-                        if (t.Current == null) continue;
-                        GameObject exhaustPrefab = (GameObject)Instantiate(GameDatabase.Instance.GetModel(exhaustPrefabPath));
-                        exhaustPrefab.SetActive(true);
-                        IEnumerator<KSPParticleEmitter> emitter = exhaustPrefab.GetComponentsInChildren<KSPParticleEmitter>().AsEnumerable().GetEnumerator();
-                        while (emitter.MoveNext())
+                    using (var t = part.FindModelTransforms("exhaustTransform").AsEnumerable().GetEnumerator())
+                        while (t.MoveNext())
                         {
-                            if (emitter.Current == null) continue;
-                            emitter.Current.emit = false;
+                            if (t.Current == null) continue;
+                            GameObject exhaustPrefab = (GameObject)Instantiate(GameDatabase.Instance.GetModel(exhaustPrefabPath));
+                            exhaustPrefab.SetActive(true);
+                            using (var emitter = exhaustPrefab.GetComponentsInChildren<KSPParticleEmitter>().AsEnumerable().GetEnumerator())
+                                while (emitter.MoveNext())
+                                {
+                                    if (emitter.Current == null) continue;
+                                    emitter.Current.emit = false;
+                                }
+                            exhaustPrefab.transform.parent = t.Current;
+                            exhaustPrefab.transform.localPosition = Vector3.zero;
+                            exhaustPrefab.transform.localRotation = Quaternion.identity;
                         }
-                        emitter.Dispose();
-                        exhaustPrefab.transform.parent = t.Current;
-                        exhaustPrefab.transform.localPosition = Vector3.zero;
-                        exhaustPrefab.transform.localRotation = Quaternion.identity;
-                    }
-                    t.Dispose();
                 }
 
                 if (!string.IsNullOrEmpty(boostExhaustPrefabPath) && !string.IsNullOrEmpty(boostExhaustTransformName))
                 {
-                    IEnumerator<Transform> t = part.FindModelTransforms(boostExhaustTransformName).AsEnumerable().GetEnumerator();
-
-                    while (t.MoveNext())
-                    {
-                        if (t.Current == null) continue;
-                        GameObject exhaustPrefab = (GameObject)Instantiate(GameDatabase.Instance.GetModel(boostExhaustPrefabPath));
-                        exhaustPrefab.SetActive(true);
-                        IEnumerator<KSPParticleEmitter> emitter = exhaustPrefab.GetComponentsInChildren<KSPParticleEmitter>().AsEnumerable().GetEnumerator();
-                        while (emitter.MoveNext())
+                    using (var t = part.FindModelTransforms(boostExhaustTransformName).AsEnumerable().GetEnumerator())
+                        while (t.MoveNext())
                         {
-                            if (emitter.Current == null) continue;
-                            emitter.Current.emit = false;
+                            if (t.Current == null) continue;
+                            GameObject exhaustPrefab = (GameObject)Instantiate(GameDatabase.Instance.GetModel(boostExhaustPrefabPath));
+                            exhaustPrefab.SetActive(true);
+                            IEnumerator<KSPParticleEmitter> emitter = exhaustPrefab.GetComponentsInChildren<KSPParticleEmitter>().AsEnumerable().GetEnumerator();
+                            while (emitter.MoveNext())
+                            {
+                                if (emitter.Current == null) continue;
+                                emitter.Current.emit = false;
+                            }
+                            emitter.Dispose();
+                            exhaustPrefab.transform.parent = t.Current;
+                            exhaustPrefab.transform.localPosition = Vector3.zero;
+                            exhaustPrefab.transform.localRotation = Quaternion.identity;
                         }
-                        emitter.Dispose();
-                        exhaustPrefab.transform.parent = t.Current;
-                        exhaustPrefab.transform.localPosition = Vector3.zero;
-                        exhaustPrefab.transform.localRotation = Quaternion.identity;
-                    }
-                    t.Dispose();
                 }
 
                 boosters = new List<GameObject>();
@@ -667,18 +662,29 @@ namespace BDArmory.Modules
             if (!HasFired)
                 CheckDetonationState();
             if (HighLogic.LoadedSceneIsFlight)
-			{
-				if (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) > 0) //#710
-				{
-					float a = (float)FlightGlobals.getGeeForceAtPosition(part.transform.position).magnitude;
-					float d = FlightGlobals.getAltitudeAtPos(part.transform.position);
-					dropTime = ((float)Math.Sqrt(a * (a + (8 * d))) - a) / (2 * a) - (Time.fixedDeltaTime * 1.5f); //quadratic equation for accel to find time from known force and vel
-				}// adjusts droptime to delay the MissileRoutine IEnum so torps won't start boosting until splashdown 
-			}
+            {
+                if (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) > 0) //#710
+                {
+                    float a = (float)FlightGlobals.getGeeForceAtPosition(part.transform.position).magnitude;
+                    float d = FlightGlobals.getAltitudeAtPos(part.transform.position);
+                    dropTime = ((float)Math.Sqrt(a * (a + (8 * d))) - a) / (2 * a) - (Time.fixedDeltaTime * 1.5f); //quadratic equation for accel to find time from known force and vel
+                }// adjusts droptime to delay the MissileRoutine IEnum so torps won't start boosting until splashdown 
+            }
         }
 
         void OnDestroy()
         {
+            KillRCS();
+            if (upRCS) EffectBehaviour.RemoveParticleEmitter(upRCS);
+            if (downRCS) EffectBehaviour.RemoveParticleEmitter(downRCS);
+            if (leftRCS) EffectBehaviour.RemoveParticleEmitter(leftRCS);
+            if (rightRCS) EffectBehaviour.RemoveParticleEmitter(rightRCS);
+            if (pEmitters != null)
+                foreach (var pe in pEmitters)
+                    if (pe) EffectBehaviour.RemoveParticleEmitter(pe);
+            if (boostEmitters != null)
+                foreach (var pe in boostEmitters)
+                    if (pe) EffectBehaviour.RemoveParticleEmitter(pe);
             BDArmorySetup.OnVolumeChange -= UpdateVolume;
             GameEvents.onPartDie.Remove(PartDie);
         }
@@ -876,7 +882,7 @@ namespace BDArmory.Modules
 
         private void CheckMiss()
         {
-            float sqrDist = (float) ((TargetPosition + (TargetVelocity * Time.fixedDeltaTime)) - (vessel.CoM + (vessel.Velocity() * Time.fixedDeltaTime))).sqrMagnitude;
+            float sqrDist = (float)((TargetPosition + (TargetVelocity * Time.fixedDeltaTime)) - (vessel.CoM + (vessel.Velocity() * Time.fixedDeltaTime))).sqrMagnitude;
             if (sqrDist < 160000 || MissileState == MissileStates.PostThrust)
             {
                 checkMiss = true;
@@ -1208,7 +1214,7 @@ namespace BDArmory.Modules
         void UpdateThrustForces()
         {
             if (MissileState == MissileStates.PostThrust) return;
-			if (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) > 0) return; //#710, no torp thrust out of water
+            if (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) > 0) return; //#710, no torp thrust out of water
             if (currentThrust * Throttle > 0)
             {
                 debugString.Append("Missile thrust=" + currentThrust * Throttle);
@@ -1281,7 +1287,7 @@ namespace BDArmory.Modules
                 while (gpe.MoveNext())
                 {
                     if (gpe.Current == null) continue;
-                    if ((!vessel.InVacuum() && Throttle > 0) && weaponClass != WeaponClasses.SLW || (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) < 0 )) //#710
+                    if ((!vessel.InVacuum() && Throttle > 0) && weaponClass != WeaponClasses.SLW || (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) < 0)) //#710
                     {
                         gpe.Current.emit = true;
                         gpe.Current.pEmitter.worldVelocity = 2 * ParticleTurbulence.flareTurbulence;
@@ -1422,13 +1428,13 @@ namespace BDArmory.Modules
 
                     emitter.Current.maxSize = Mathf.Clamp01(Throttle / Mathf.Clamp((float)vessel.atmDensity, 0.2f, 1f));
                     if (weaponClass != WeaponClasses.SLW || (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) < 0)) //#710
-					{
-						emitter.Current.emit = true;
-					}
-					else
-					{
-						emitter.Current.emit = false; // #710, shut down thrust FX for torps out of water
-					}
+                    {
+                        emitter.Current.emit = true;
+                    }
+                    else
+                    {
+                        emitter.Current.emit = false; // #710, shut down thrust FX for torps out of water
+                    }
                 }
                 emitter.Dispose();
 
@@ -1436,16 +1442,16 @@ namespace BDArmory.Modules
                 while (gpe.MoveNext())
                 {
                     if (gpe.Current == null) continue;
-                   if (weaponClass != WeaponClasses.SLW || (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) < 0)) //#710
-					{
-						gpe.Current.pEmitter.maxSize = Mathf.Clamp01(Throttle / Mathf.Clamp((float)vessel.atmDensity, 0.2f, 1f));
-						gpe.Current.emit = true;
-						gpe.Current.pEmitter.worldVelocity = 2 * ParticleTurbulence.flareTurbulence;
-					}
-					else
-					{
-						gpe.Current.emit = false;
-					}
+                    if (weaponClass != WeaponClasses.SLW || (weaponClass == WeaponClasses.SLW && FlightGlobals.getAltitudeAtPos(part.transform.position) < 0)) //#710
+                    {
+                        gpe.Current.pEmitter.maxSize = Mathf.Clamp01(Throttle / Mathf.Clamp((float)vessel.atmDensity, 0.2f, 1f));
+                        gpe.Current.emit = true;
+                        gpe.Current.pEmitter.worldVelocity = 2 * ParticleTurbulence.flareTurbulence;
+                    }
+                    else
+                    {
+                        gpe.Current.emit = false;
+                    }
                 }
                 gpe.Dispose();
 
@@ -1601,7 +1607,7 @@ namespace BDArmory.Modules
 
             Vector3 cruiseTarget = Vector3.zero;
 
-            cruiseTarget = this._guidance.GetDirection(this,TargetPosition);
+            cruiseTarget = this._guidance.GetDirection(this, TargetPosition);
 
             Vector3 upDirection = VectorUtils.GetUpDirection(transform.position);
 
@@ -1866,14 +1872,10 @@ namespace BDArmory.Modules
 
         public void KillRCS()
         {
-            upRCS.emit = false;
-            EffectBehaviour.RemoveParticleEmitter(upRCS);
-            downRCS.emit = false;
-            EffectBehaviour.RemoveParticleEmitter(downRCS);
-            leftRCS.emit = false;
-            EffectBehaviour.RemoveParticleEmitter(leftRCS);
-            rightRCS.emit = false;
-            EffectBehaviour.RemoveParticleEmitter(rightRCS);
+            if (upRCS) upRCS.emit = false;
+            if (downRCS) downRCS.emit = false;
+            if (leftRCS) leftRCS.emit = false;
+            if (rightRCS) rightRCS.emit = false;
         }
 
         void OnGUI()
