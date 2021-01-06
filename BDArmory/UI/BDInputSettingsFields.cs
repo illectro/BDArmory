@@ -42,6 +42,10 @@ namespace BDArmory.UI
         public static BDInputInfo VS_SWITCH_NEXT = new BDInputInfo("page up", "Next Vessel");
         public static BDInputInfo VS_SWITCH_PREV = new BDInputInfo("page down", "Prev Vessel");
 
+        // TOURNAMENT
+        public static BDInputInfo TOURNAMENT_SETUP = new BDInputInfo("Setup Tournament");
+        public static BDInputInfo TOURNAMENT_RUN = new BDInputInfo("Run Tournament");
+
         public static void SaveSettings()
         {
             ConfigNode fileNode = ConfigNode.Load(BDArmorySettings.settingsConfigURL);

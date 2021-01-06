@@ -811,9 +811,10 @@ namespace BDArmory.Modules
         {
             if (TargetingMode == TargetingModes.AntiRad && TargetAcquired && v == vessel)
             {
-                if ((source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).sqrMagnitude < Mathf.Pow(maxStaticLaunchRange / 4, 2) //drastically increase update range for anti-radiation missile to track moving targets!
-                    && Vector3.Angle(source - transform.position, GetForwardTransform()) < maxOffBoresight)
+                // Ping was close to the previous target position and is within the boresight of the missile.
+                if ((source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).sqrMagnitude < Mathf.Pow(maxStaticLaunchRange / 4, 2) && Vector3.Angle(source - transform.position, GetForwardTransform()) < maxOffBoresight)
                 {
+                    if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[MissileBase]: Radar ping! Adjusting target position by " + (source - VectorUtils.GetWorldSurfacePostion(targetGPSCoords, vessel.mainBody)).magnitude + " to " + TargetPosition);
                     TargetAcquired = true;
                     TargetPosition = source;
                     targetGPSCoords = VectorUtils.WorldPositionToGeoCoords(TargetPosition, vessel.mainBody);

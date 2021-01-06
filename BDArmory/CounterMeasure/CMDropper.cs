@@ -298,7 +298,7 @@ namespace BDArmory.CounterMeasure
 
         void SetupFlarePool()
         {
-            GameObject cm = (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/CMFlare/model"));
+            GameObject cm = GameDatabase.Instance.GetModel("BDArmory/Models/CMFlare/model");
             cm.SetActive(false);
             cm.AddComponent<CMFlare>();
             flarePool = ObjectPool.CreateObjectPool(cm, 10, true, true);
@@ -306,7 +306,7 @@ namespace BDArmory.CounterMeasure
 
         void SetupSmokePool()
         {
-            GameObject cm = (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/CMSmoke/cmSmokeModel"));
+            GameObject cm = GameDatabase.Instance.GetModel("BDArmory/Models/CMSmoke/cmSmokeModel");
             cm.SetActive(false);
             cm.AddComponent<CMSmoke>();
             smokePool = ObjectPool.CreateObjectPool(cm, 10, true, true);
@@ -314,7 +314,7 @@ namespace BDArmory.CounterMeasure
 
         void SetupChaffPool()
         {
-            GameObject cm = (GameObject)Instantiate(GameDatabase.Instance.GetModel("BDArmory/Models/CMChaff/model"));
+            GameObject cm = GameDatabase.Instance.GetModel("BDArmory/Models/CMChaff/model");
             cm.SetActive(false);
             cm.AddComponent<CMChaff>();
             chaffPool = ObjectPool.CreateObjectPool(cm, 10, true, true);

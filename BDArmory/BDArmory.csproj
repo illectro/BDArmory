@@ -170,7 +170,6 @@
     <Compile Include="FX\BulletHitFX.cs" />
     <Compile Include="CounterMeasure\CMFlare.cs" />
     <Compile Include="CounterMeasure\CMDropper.cs" />
-    <Compile Include="Modules\RocketLauncher.cs" />
     <Compile Include="FX\ParticleTurbulence.cs" />
     <Compile Include="Modules\ClusterBomb.cs" />
     <Compile Include="Misc\KSPForceApplier.cs" />
@@ -195,6 +194,8 @@
     <Compile Include="Modules\ModuleWeapon.cs" />
     <Compile Include="Misc\ObjectPool.cs" />
     <Compile Include="Bullets\PooledBullet.cs" />
+    <Compile Include="Bullets\PooledRocket.cs" />
+    <Compile Include="Bullets\RocketInfo.cs" />
     <Compile Include="FX\CameraBulletRenderer.cs" />
     <Compile Include="Shaders\BDAShaderLoader.cs" />
     <Compile Include="Misc\IBDWeapon.cs" />
@@ -259,6 +260,7 @@
     <None Include="Distribution\GameData\BDArmory\ATM_BDArmory.cfg" />
     <None Include="Distribution\GameData\BDArmory\BDArmory.version" />
     <None Include="Distribution\GameData\BDArmory\BulletDefs\BD_Bullets.cfg" />
+    <None Include="Distribution\GameData\BDArmory\BulletDefs\BD_Rockets.cfg" />
     <None Include="Distribution\GameData\BDArmory\craft\BDA - Test Plane - AA.craft" />
     <None Include="Distribution\GameData\BDArmory\craft\BDA - Test Plane - AG.craft" />
     <None Include="Distribution\GameData\BDArmory\craft\BDA - Test Platform - Missile.craft" />

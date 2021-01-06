@@ -110,7 +110,7 @@ namespace BDArmory.Misc
                     fileguns.WriteLine(
                         item.name + ";" + item.title + ";" + item.author + ";" + item.manufacturer + ";" + item.partPrefab.mass + ";" + item.cost + ";" + item.partPrefab.crashTolerance + ";" + item.partPrefab.maxTemp + ";" +
                         weapon.roundsPerMinute + ";" + weapon.maxDeviation + ";" + weapon.maxEffectiveDistance + ";" + weapon.weaponType + ";" + weapon.bulletType + ";" + weapon.ammoName + ";" + weapon.bulletMass + ";" + weapon.bulletVelocity + ";" +
-                        weapon.maxHeat + ";" + weapon.heatPerShot + ";" + weapon.heatLoss + ";" + weapon.cannonShellPower + ";" + weapon.cannonShellHeat + ";" + weapon.cannonShellRadius + ";" + weapon.airDetonation
+                        weapon.maxHeat + ";" + weapon.heatPerShot + ";" + weapon.heatLoss + ";" + weapon.tntMass + ";" + weapon.airDetonation
                         );
                 }
 

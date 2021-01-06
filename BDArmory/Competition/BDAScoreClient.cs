@@ -323,18 +323,20 @@ namespace BDArmory.Competition
                 Debug.Log(string.Format("[BDAScoreClient] Failed to save craft for vessel {0}, player {1}", vessel.id, vessel.player_id));
                 return;
             }
-            string filename = string.Format("{0}/{1}.craft", vesselPath, p.name);
+
+            string vesselName = string.Format("{0}_{1}", p.name, vessel.name);
+            string filename = string.Format("{0}/{1}.craft", vesselPath, vesselName);
             System.IO.File.WriteAllBytes(filename, bytes);
 
             // load the file and modify its vessel name to match the player
             string[] lines = File.ReadAllLines(filename);
             string pattern = ".*ship = (.+)";
             string[] modifiedLines = lines
-                .Select(e => Regex.Replace(e, pattern, "ship = " + p.name))
+                .Select(e => Regex.Replace(e, pattern, "ship = " + vesselName))
                 .Where(e => !e.Contains("VESSELNAMING"))
                 .ToArray();
             File.WriteAllLines(filename, modifiedLines);
-            Debug.Log(string.Format("[BDAScoreClient] Saved craft for player {0}", p.name));
+            Debug.Log(string.Format("[BDAScoreClient] Saved craft for player {0}", vesselName));
         }
 
         public IEnumerator StartHeat(string hash, HeatModel heat)

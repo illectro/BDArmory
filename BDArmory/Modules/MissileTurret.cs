@@ -18,6 +18,10 @@ namespace BDArmory.Modules
 
         [KSPField(guiActive = true, guiName = "#LOC_BDArmory_TurretEnabled")] public bool turretEnabled;//Turret Enabled
 
+        [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_MissileTurretFireFOV"),
+            UI_FloatRange(minValue = 1, maxValue = 180, stepIncrement = 1, scene = UI_Scene.All)]
+        public float fireFOV = 5; // Fire when pointing within 5° of target.
+
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_AutoReturn"),//Auto-Return
          UI_Toggle(scene = UI_Scene.Editor)]
         public bool autoReturn = true;

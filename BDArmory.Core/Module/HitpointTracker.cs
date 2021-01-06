@@ -12,7 +12,7 @@ namespace BDArmory.Core.Module
         public float Hitpoints;
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_ArmorThickness"),//Armor Thickness
-        UI_FloatRange(minValue = 1f, maxValue = 500f, stepIncrement = 5f, scene = UI_Scene.All)]
+        UI_FloatRange(minValue = 0f, maxValue = 1500f, stepIncrement = 5f, scene = UI_Scene.All)]
         public float Armor = 10f;
 
         [KSPField(isPersistant = true)]
@@ -86,12 +86,12 @@ namespace BDArmory.Core.Module
 
                 //Add Armor
                 UI_FloatRange armorFieldFlight = (UI_FloatRange)Fields["Armor"].uiControlFlight;
-                armorFieldFlight.maxValue = 500f;
-                armorFieldFlight.minValue = 10;
+                armorFieldFlight.maxValue = 1500f;
+                armorFieldFlight.minValue = 0f;
 
                 UI_FloatRange armorFieldEditor = (UI_FloatRange)Fields["Armor"].uiControlEditor;
-                armorFieldEditor.maxValue = 500f;
-                armorFieldEditor.minValue = 10f;
+                armorFieldEditor.maxValue = 1500f;
+                armorFieldEditor.minValue = 0f;
                 part.RefreshAssociatedWindows();
 
                 if (!ArmorSet) overrideArmorSetFromConfig();
@@ -182,7 +182,14 @@ namespace BDArmory.Core.Module
                 // SuicidalInsanity B9 patch
                 if (part.name.Contains("B9.Aero.Wing.Procedural")) 
                 {
-                    hitpoints = (part.mass * 1000f) * 3.5f; // since wings are basically a 2d object, lets have mass be our scalar - afterall, 2x the mass will ~= 2x the surfce area
+                    if (part.Modules.Contains("FARWingAerodynamicModel") || part.Modules.Contains("FARControllableSurface"))
+                        {
+                            hitpoints = (part.mass * 1000f) * 3.5f * hitpointMultiplier * 0.33f; //To account for FAR's Strength-mass Scalar.
+                        }
+                    else
+                    {
+                        hitpoints = (part.mass * 1000f) * 7f; // since wings are basically a 2d object, lets have mass be our scalar - afterall, 2x the mass will ~= 2x the surfce area
+                    }
                 }
 
                 hitpoints = Mathf.Round(hitpoints / HpRounding) * HpRounding;

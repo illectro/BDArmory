@@ -40,9 +40,9 @@ namespace BDArmory.UI
         [BDAWindowSettingsField] public static Rect WindowRectVesselSpawner;
 
         //reflection field lists
-        FieldInfo[] iFs;
+        static FieldInfo[] iFs;
 
-        FieldInfo[] inputFields
+        static FieldInfo[] inputFields
         {
             get
             {
@@ -436,6 +436,7 @@ namespace BDArmory.UI
             }
 
             BulletInfo.Load();
+            RocketInfo.Load();
 
             // Spawn fields
             spawnFields = new Dictionary<string, SpawnField> {
@@ -538,24 +539,13 @@ namespace BDArmory.UI
                     !ActiveWeaponManager.guardMode)
                 {
                     if (ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Gun ||
+                        ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Rocket ||
                         ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.DefenseLaser)
                     {
                         ModuleWeapon mw =
                             ActiveWeaponManager.selectedWeapon.GetPart().FindModuleImplementing<ModuleWeapon>();
                         if (mw.weaponState == ModuleWeapon.WeaponStates.Enabled && mw.maxPitch > 1 && !mw.slaved &&
                             !mw.aiControlled)
-                        {
-                            //Screen.showCursor = false;
-                            Cursor.visible = false;
-                            drawCursor = true;
-                            return;
-                        }
-                    }
-                    else if (ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Rocket)
-                    {
-                        RocketLauncher rl =
-                            ActiveWeaponManager.selectedWeapon.GetPart().FindModuleImplementing<RocketLauncher>();
-                        if (rl.readyToFire && rl.turret)
                         {
                             //Screen.showCursor = false;
                             Cursor.visible = false;
@@ -793,7 +783,9 @@ namespace BDArmory.UI
                 //if weapon can ripple, show option and slider.
                 if (ActiveWeaponManager.hasLoadedRippleData && ActiveWeaponManager.canRipple)
                 {
-                    if (ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Gun)
+                    if (ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Gun
+                        || ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.Rocket
+                        || ActiveWeaponManager.selectedWeapon.GetWeaponClass() == WeaponClasses.DefenseLaser) //remove rocket ripple slider - moved to editor
                     {
                         string rippleText = ActiveWeaponManager.rippleFire
                             ? Localizer.Format("#LOC_BDArmory_WMWindow_rippleText1", ActiveWeaponManager.gunRippleRpm.ToString("0"))//"Barrage: " +  + " RPM"
@@ -925,7 +917,7 @@ namespace BDArmory.UI
                 {
                     line += 0.25f;
                     GUI.BeginGroup(
-                        new Rect(5, contentTop + (line * entryHeight), toolWindowWidth - 10, 7.45f * entryHeight),
+                        new Rect(5, contentTop + (line * entryHeight), toolWindowWidth - 10, 8.45f * entryHeight),
                         GUIContent.none, BDGuiSkin.box);
                     guardLines += 0.1f;
                     contentWidth -= 16;
@@ -958,6 +950,21 @@ namespace BDArmory.UI
                     ActiveWeaponManager.fireBurstLength = Mathf.Round(ActiveWeaponManager.fireBurstLength * 2) / 2;
                     GUI.Label(new Rect(leftIndent + (contentWidth - 35), (guardLines * entryHeight), 35, entryHeight),
                         ActiveWeaponManager.fireBurstLength.ToString(), leftLabel);
+                    guardLines++;
+
+                    // extension for feature_engagementenvelope: set the firing accuracy tolarance
+                    var oldAutoFireCosAngleAdjustment = ActiveWeaponManager.AutoFireCosAngleAdjustment;
+                    string accuracyLabel = Localizer.Format("#LOC_BDArmory_WMWindow_FiringTolerance");//"Firing Angle"
+                    GUI.Label(new Rect(leftIndent, (guardLines * entryHeight), 85, entryHeight), accuracyLabel, leftLabel);
+                    ActiveWeaponManager.AutoFireCosAngleAdjustment =
+                        GUI.HorizontalSlider(
+                            new Rect(leftIndent + (90), (guardLines * entryHeight), contentWidth - 90 - 38, entryHeight),
+                            ActiveWeaponManager.AutoFireCosAngleAdjustment, 0, 2);
+                    ActiveWeaponManager.AutoFireCosAngleAdjustment = Mathf.Round(ActiveWeaponManager.AutoFireCosAngleAdjustment * 20) / 20;
+                    if (ActiveWeaponManager.AutoFireCosAngleAdjustment != oldAutoFireCosAngleAdjustment)
+                        ActiveWeaponManager.OnAFCAAUpdated(null, null);
+                    GUI.Label(new Rect(leftIndent + (contentWidth - 35), (guardLines * entryHeight), 35, entryHeight),
+                        ActiveWeaponManager.AutoFireCosAngleAdjustment.ToString(), leftLabel);
                     guardLines++;
 
                     GUI.Label(new Rect(leftIndent, (guardLines * entryHeight), 85, entryHeight), Localizer.Format("#LOC_BDArmory_WMWindow_FieldofView"),//"Field of View"
@@ -1540,6 +1547,9 @@ namespace BDArmory.UI
                 }
                 BDArmorySettings.BATTLEDAMAGE = GUI.Toggle(SRightRect(line), BDArmorySettings.BATTLEDAMAGE, Localizer.Format("#LOC_BDArmory_Settings_BattleDamage"));
                 BDArmorySettings.EXTRA_DAMAGE_SLIDERS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.EXTRA_DAMAGE_SLIDERS, Localizer.Format("#LOC_BDArmory_Settings_ExtraDamageSliders"));
+                BDArmorySettings.AUTO_ENABLE_VESSEL_SWITCHING = GUI.Toggle(SRightRect(line), BDArmorySettings.AUTO_ENABLE_VESSEL_SWITCHING, Localizer.Format("#LOC_BDArmory_Settings_AutoEnableVesselSwitching"));
+                BDArmorySettings.AUTONOMOUS_COMBAT_SEATS = GUI.Toggle(SLeftRect(++line), BDArmorySettings.AUTONOMOUS_COMBAT_SEATS, Localizer.Format("#LOC_BDArmory_Settings_AutonomousCombatSeats"));
+                BDArmorySettings.DESTROY_UNCONTROLLED_WMS = GUI.Toggle(SRightRect(line), BDArmorySettings.DESTROY_UNCONTROLLED_WMS, Localizer.Format("#LOC_BDArmory_Settings_DestroyWMWhenNotControlled"));
                 if (HighLogic.LoadedSceneIsEditor)
                 {
                     if (BDArmorySettings.SHOW_CATEGORIES != (BDArmorySettings.SHOW_CATEGORIES = GUI.Toggle(SLeftRect(++line), BDArmorySettings.SHOW_CATEGORIES, Localizer.Format("#LOC_BDArmory_Settings_ShowEditorSubcategories"))))//"Show Editor Subcategories"
@@ -1679,6 +1689,14 @@ namespace BDArmory.UI
                     OnVolumeChange();
                 }
                 BDArmorySettings.BDARMORY_WEAPONS_VOLUME = weaponVol;
+
+                if (BDArmorySettings.DRAW_DEBUG_LABELS)
+                {
+                    if (GUI.Button(SLeftRect(++line), "Run DEBUG checks"))// Run DEBUG checks
+                    {
+                        BDACompetitionMode.Instance.RunDebugChecks();
+                    }
+                }
             }
 
             //competition mode
@@ -1825,16 +1843,17 @@ namespace BDArmory.UI
 
         void InputSettings()
         {
-            float line = 1.25f;
+            float line = 0f;
             int inputID = 0;
             float origSettingsWidth = settingsWidth;
             float origSettingsHeight = settingsHeight;
             float origSettingsMargin = settingsMargin;
 
-            settingsWidth = origSettingsWidth - 28;
             settingsMargin = 10;
-            Rect viewRect = new Rect(settingsMargin, 20, origSettingsWidth - 12, origSettingsHeight - 100);
-            Rect scrollerRect = new Rect(settingsMargin, 20, origSettingsWidth - 30, settingsHeight * 1.4f);
+            settingsWidth = origSettingsWidth - 2 * settingsMargin;
+            settingsHeight = origSettingsHeight - 100;
+            Rect viewRect = new Rect(2, 20, settingsWidth + GUI.skin.verticalScrollbar.fixedWidth, settingsHeight);
+            Rect scrollerRect = new Rect(0, 0, settingsWidth - GUI.skin.verticalScrollbar.fixedWidth - 1, inputFields != null ? (inputFields.Length + 9) * settingsLineHeight : settingsHeight);
 
             _displayViewerPosition = GUI.BeginScrollView(viewRect, _displayViewerPosition, scrollerRect, false, true);
 
@@ -1856,9 +1875,14 @@ namespace BDArmory.UI
             GUI.Label(SLineRect(line), "- " + Localizer.Format("#LOC_BDArmory_InputSettings_VesselSwitcher") + " -", centerLabel);//Vessel Switcher
             line++;
             InputSettingsList("VS_", ref inputID, ref line);
+            line++;
+
+            GUI.Label(SLineRect(line), "- " + Localizer.Format("#LOC_BDArmory_InputSettings_Tournament") + " -", centerLabel);//Tournament
+            line++;
+            InputSettingsList("TOURNAMENT_", ref inputID, ref line);
             GUI.EndScrollView();
 
-            line = (origSettingsHeight - 100) / settingsLineHeight;
+            line = settingsHeight / settingsLineHeight;
             line += 2;
             settingsWidth = origSettingsWidth;
             settingsMargin = origSettingsMargin;
@@ -1867,7 +1891,6 @@ namespace BDArmory.UI
                 editKeys = false;
             }
 
-            //line += 1.5f;
             settingsHeight = origSettingsHeight;
             WindowRectSettings.height = origSettingsHeight;
             BDGUIUtils.UseMouseEventInRect(WindowRectSettings);

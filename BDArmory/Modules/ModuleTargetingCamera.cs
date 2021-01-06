@@ -383,8 +383,11 @@ namespace BDArmory.Modules
             {
                 yield return null;
             }
-
             while (vessel.mainBody == null)
+            {
+                yield return null;
+            }
+            while (BDArmorySetup.Instance == null)
             {
                 yield return null;
             }

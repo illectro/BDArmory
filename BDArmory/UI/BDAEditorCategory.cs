@@ -116,6 +116,13 @@ namespace BDArmory.UI
                                     else
                                         parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Lasers");
                                 }
+                                if (moduleWeapon.weaponType == "rocket")
+                                {
+                                    if (parts.Current.partPrefab.FindModuleImplementing<ModuleTurret>())
+                                        parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Rocket turrets");
+                                    else
+                                        parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Rocketlaunchers");
+                                }
                                 else
                                 {
                                     if (parts.Current.partPrefab.FindModuleImplementing<ModuleTurret>())
@@ -137,14 +144,7 @@ namespace BDArmory.UI
                             else if (parts.Current.partPrefab.FindModuleImplementing<MissileTurret>() != null)
                             {
                                 parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Missile turrets");
-                            }
-                            else if (parts.Current.partPrefab.FindModuleImplementing<RocketLauncher>() != null)
-                            {
-                                if (parts.Current.partPrefab.FindModuleImplementing<ModuleTurret>())
-                                    parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Rocket turrets");
-                                else
-                                    parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Rocket pods");
-                            }
+                            }                            
                             else if (parts.Current.partPrefab.FindModuleImplementing<ModuleRadar>() != null)
                             {
                                 parts.Current.partConfig.AddValue(AutoBDACategoryKey, "Radars");

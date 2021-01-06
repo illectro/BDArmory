@@ -1357,7 +1357,7 @@ namespace BDArmory.Radar
 
         private void RefreshAvailableLinks()
         {
-            if (!HighLogic.LoadedSceneIsFlight || !weaponManager || (FlightGlobals.Vessels == null) || (!FlightGlobals.ready))
+            if (!HighLogic.LoadedSceneIsFlight || vessel == null || weaponManager == null || !FlightGlobals.ready || FlightGlobals.Vessels == null)
             {
                 return;
             }
@@ -1366,7 +1366,7 @@ namespace BDArmory.Radar
             using (var v = FlightGlobals.Vessels.GetEnumerator())
                 while (v.MoveNext())
                 {
-                    if (v.Current == null || !v.Current.loaded || vessel == null || v.Current == vessel) continue;
+                    if (v.Current == null || !v.Current.loaded || v.Current == vessel) continue;
 
                     BDTeam team = null;
                     List<MissileFire>.Enumerator mf = v.Current.FindPartModulesImplementing<MissileFire>().GetEnumerator();
@@ -1593,6 +1593,18 @@ namespace BDArmory.Radar
                 rad.UnlockTargetAt(rad.currentLockIndex);
                 UpdateLockedTargets();
             }
+        }
+
+        public bool SwitchActiveLockedTarget(Vessel vessel) // FIXME This needs to take into account the maxLocks field.
+        {
+            var vesselIndex = displayedTargets.FindIndex(t => t.vessel == vessel);
+            if (vesselIndex != -1)
+            {
+                activeLockedTargetIndex = vesselIndex;
+                UpdateLockedTargets();
+                return true;
+            }
+            return false;
         }
 
         public void UnlockAllTargetsOfRadar(ModuleRadar radar)

@@ -104,7 +104,7 @@ namespace BDArmory.Misc
 
             if (canGrow)
             {
-                var size = (int)(pool.Count * 1.2); // Grow by 20%
+                var size = (int)(pool.Count * 1.2) + 1; // Grow by 20% + 1
                 Debug.Log("[ObjectPool]: Increasing pool size to " + size + " for " + poolObjectName);
                 AddObjectsToPool(size - pool.Count);
 

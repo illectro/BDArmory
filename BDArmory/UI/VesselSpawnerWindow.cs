@@ -27,7 +27,7 @@ namespace BDArmory.UI
             {
                 if (v != possibleValue)
                 {
-                    lastUpdated = Time.time;
+                    lastUpdated = !string.IsNullOrEmpty(v) ? Time.time : Time.time + 0.5; // Give the empty string an extra 0.5s.
                     possibleValue = v;
                     if (!coroutineRunning)
                     {
@@ -36,11 +36,18 @@ namespace BDArmory.UI
                 }
             }
 
-            private IEnumerator UpdateValueCoroutine()
+            IEnumerator UpdateValueCoroutine()
             {
                 coroutineRunning = true;
                 while (Time.time - lastUpdated < 0.5)
                     yield return new WaitForFixedUpdate();
+                tryParseCurrentValue();
+                coroutineRunning = false;
+                yield return new WaitForFixedUpdate();
+            }
+
+            void tryParseCurrentValue()
+            {
                 double newValue;
                 if (double.TryParse(possibleValue, out newValue))
                 {
@@ -48,8 +55,17 @@ namespace BDArmory.UI
                     lastUpdated = Time.time;
                 }
                 possibleValue = currentValue.ToString("G6");
-                coroutineRunning = false;
-                yield return new WaitForFixedUpdate();
+            }
+
+            // Parse the current possible value immediately.
+            public void tryParseValueNow()
+            {
+                tryParseCurrentValue();
+                if (coroutineRunning)
+                {
+                    StopCoroutine(coroutine);
+                    coroutineRunning = false;
+                }
             }
         }
 
@@ -194,6 +210,7 @@ namespace BDArmory.UI
 
         private void Update()
         {
+            HotKeys();
         }
 
         private void OnGUI()
@@ -218,6 +235,24 @@ namespace BDArmory.UI
                 BDArmorySetup.BDGuiSkin.window
             );
             Misc.Misc.UpdateGUIRect(BDArmorySetup.WindowRectVesselSpawner, _guiCheckIndex);
+        }
+
+        void HotKeys()
+        {
+            if (BDInputUtils.GetKeyDown(BDInputSettingsFields.TOURNAMENT_SETUP))
+                BDATournament.Instance.SetupTournament(BDArmorySettings.TOURNAMENT_FILES_LOCATION, BDArmorySettings.TOURNAMENT_ROUNDS, BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT);
+            if (BDInputUtils.GetKeyDown(BDInputSettingsFields.TOURNAMENT_RUN))
+                BDATournament.Instance.RunTournament();
+        }
+
+        void ParseAllSpawnFieldsNow()
+        {
+            spawnFields["lat"].tryParseValueNow();
+            spawnFields["lon"].tryParseValueNow();
+            spawnFields["alt"].tryParseValueNow();
+            BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x = Math.Min(Math.Max(spawnFields["lat"].currentValue, -90), 90);
+            BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y = Math.Min(Math.Max(spawnFields["lon"].currentValue, -180), 180);
+            BDArmorySettings.VESSEL_SPAWN_ALTITUDE = Math.Max(0, (float)spawnFields["alt"].currentValue);
         }
 
         private void SetNewHeight(float windowHeight)
@@ -403,13 +438,16 @@ namespace BDArmory.UI
                 GUI.Label(SLeftRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentFilesLocation")} (AutoSpawn/): ", leftLabel); // Craft files location
                 BDArmorySettings.TOURNAMENT_FILES_LOCATION = GUI.TextField(SRightRect(line), BDArmorySettings.TOURNAMENT_FILES_LOCATION);
 
+                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentDelayBetweenHeats")}: ({BDArmorySettings.TOURNAMENT_DELAY_BETWEEN_HEATS}s)", leftLabel); // Delay between heats
+                BDArmorySettings.TOURNAMENT_DELAY_BETWEEN_HEATS = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_DELAY_BETWEEN_HEATS, 0f, 15f);
+
                 var value = BDArmorySettings.TOURNAMENT_ROUNDS < 21 ? BDArmorySettings.TOURNAMENT_ROUNDS : (16 + BDArmorySettings.TOURNAMENT_ROUNDS / 5);
                 GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentRounds")}:  ({BDArmorySettings.TOURNAMENT_ROUNDS})", leftLabel); // Rounds
                 value = (int)GUI.HorizontalSlider(SRightSliderRect(line), value, 1f, 36f);
                 BDArmorySettings.TOURNAMENT_ROUNDS = value < 21 ? value : (value - 16) * 5;
 
-                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentVesselsPerHeat")}:  ({(BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT > 1 ? BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT.ToString() : "Inf")})", leftLabel); // Vessels Per Heat
-                BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT, 1f, 20f);
+                GUI.Label(SLeftSliderRect(++line), $"{Localizer.Format("#LOC_BDArmory_Settings_TournamentVesselsPerHeat")}:  ({(BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT > 1 ? BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT.ToString() : (BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT == 0 ? "Auto" : "Inf"))})", leftLabel); // Vessels Per Heat
+                BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT = (int)GUI.HorizontalSlider(SRightSliderRect(line), BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT, 0f, 20f);
 
                 GUI.Label(SLineRect(++line), $"ID: {BDATournament.Instance.tournamentID}, {BDATournament.Instance.vesselCount} vessels, {BDATournament.Instance.numberOfRounds} rounds, {BDATournament.Instance.numberOfHeats} heats per round ({BDATournament.Instance.heatsRemaining} remaining).", leftLabel);
                 switch (BDATournament.Instance.tournamentStatus)
@@ -424,6 +462,7 @@ namespace BDArmory.UI
                     default:
                         if (GUI.Button(SLeftRect(++line), Localizer.Format("#LOC_BDArmory_Settings_TournamentSetup"), BDArmorySetup.BDGuiSkin.button)) // Setup tournament
                         {
+                            ParseAllSpawnFieldsNow();
                             BDATournament.Instance.SetupTournament(BDArmorySettings.TOURNAMENT_FILES_LOCATION, BDArmorySettings.TOURNAMENT_ROUNDS, BDArmorySettings.TOURNAMENT_VESSELS_PER_HEAT);
                             BDArmorySetup.SaveConfig();
                         }
@@ -485,6 +524,7 @@ namespace BDArmory.UI
             if (GUI.Button(SLineRect(++line), Localizer.Format("#LOC_BDArmory_Settings_SingleSpawn"), _vesselsSpawned ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))
             {
                 BDATournament.Instance.StopTournament();
+                ParseAllSpawnFieldsNow();
                 if (!_vesselsSpawned && !VesselSpawner.Instance.vesselsSpawningContinuously && Event.current.button == 0) // Left click
                 {
                     if (BDArmorySettings.VESSEL_SPAWN_CONTINUE_SINGLE_SPAWNING)
@@ -501,6 +541,7 @@ namespace BDArmory.UI
             if (GUI.Button(SLineRect(++line), Localizer.Format("#LOC_BDArmory_Settings_ContinuousSpawning"), VesselSpawner.Instance.vesselsSpawningContinuously ? BDArmorySetup.BDGuiSkin.box : BDArmorySetup.BDGuiSkin.button))
             {
                 BDATournament.Instance.StopTournament();
+                ParseAllSpawnFieldsNow();
                 if (!VesselSpawner.Instance.vesselsSpawningContinuously && !_vesselsSpawned && Event.current.button == 0) // Left click
                 {
                     VesselSpawner.Instance.SpawnVesselsContinuously(BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.x, BDArmorySettings.VESSEL_SPAWN_GEOCOORDS.y, BDArmorySettings.VESSEL_SPAWN_ALTITUDE, BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE ? BDArmorySettings.VESSEL_SPAWN_DISTANCE : BDArmorySettings.VESSEL_SPAWN_DISTANCE_FACTOR, BDArmorySettings.VESSEL_SPAWN_DISTANCE_TOGGLE, true); // Spawn vessels continuously at 1km above terrain.

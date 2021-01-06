@@ -341,7 +341,11 @@ namespace BDArmory.Control
                         lastTerrainDistance = terrainDistance;
                         yield return new WaitForFixedUpdate();
                         terrainDistance = Physics.Raycast(ray, out hit, 2f * (float)(spawnConfig.altitude + distanceToCoMainBody), 1 << 15) ? hit.distance : -1f; // Oceans shouldn't be more than 10km deep...
-                        if (terrainDistance < 0f) break; // Raycast is failing. If we're spawning airborne, then this won't matter too much.
+                        if (terrainDistance < 0f) // Raycast is failing to find terrain.
+                        {
+                            if (Planetarium.GetUniversalTime() - startTime < 1) continue; // Give the terrain renderer a chance to spawn the terrain.
+                            else break;
+                        }
                         if (Math.Abs(lastTerrainDistance - terrainDistance) > 0.1f)
                             lastStableTimeStart = Planetarium.GetUniversalTime(); // Reset the stable time tracker.
                         stableTime = Planetarium.GetUniversalTime() - lastStableTimeStart;
@@ -521,7 +525,8 @@ namespace BDArmory.Control
                         // Check that none of the vessels have lost parts.
                         if (spawnedVessels.Any(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]))
                         {
-                            message = "One of the vessel lost parts after spawning.";
+                            var offendingVessels = spawnedVessels.Where(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]);
+                            message = "One of the vessels lost parts after spawning: " + string.Join(", ", offendingVessels.Select(kvp => kvp.Value.Item1?.vesselName));
                             BDACompetitionMode.Instance.competitionStatus.Add(message);
                             Debug.Log("[VesselSpawner]: " + message);
                             spawnFailureReason = SpawnFailureReason.VesselLostParts;
@@ -590,7 +595,8 @@ namespace BDArmory.Control
                         // Check that none of the vessels have lost parts.
                         if (spawnedVessels.Any(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]))
                         {
-                            message = "One of the vessel lost parts after spawning.";
+                            var offendingVessels = spawnedVessels.Where(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]);
+                            message = "One of the vessels lost parts after spawning: " + string.Join(", ", offendingVessels.Select(kvp => kvp.Value.Item1?.vesselName));
                             BDACompetitionMode.Instance.competitionStatus.Add(message);
                             spawnFailureReason = SpawnFailureReason.VesselLostParts;
                             break;
@@ -615,7 +621,8 @@ namespace BDArmory.Control
                     // Check that none of the vessels have lost parts.
                     if (spawnedVessels.Any(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]))
                     {
-                        message = "One of the vessel lost parts after spawning.";
+                        var offendingVessels = spawnedVessels.Where(kvp => kvp.Value.Item1.parts.Count < spawnedVesselPartCounts[kvp.Key]);
+                        message = "One of the vessels lost parts after spawning: " + string.Join(", ", offendingVessels.Select(kvp => kvp.Value.Item1?.vesselName));
                         BDACompetitionMode.Instance.competitionStatus.Add(message);
                         spawnFailureReason = SpawnFailureReason.VesselLostParts;
                     }
@@ -654,6 +661,7 @@ namespace BDArmory.Control
                 if (spawnConfig.assignTeams)
                 {
                     // Assign the vessels to their own teams.
+                    Debug.Log("[VesselSpawner]: Assigning each vessel to its own team.");
                     LoadedVesselSwitcher.Instance.MassTeamSwitch(true);
                     yield return new WaitForFixedUpdate();
                 }
@@ -1510,8 +1518,9 @@ namespace BDArmory.Control
                     crewMember.gender = UnityEngine.Random.Range(0, 100) > 50
                         ? ProtoCrewMember.Gender.Female
                         : ProtoCrewMember.Gender.Male;
-                    KerbalRoster.SetExperienceTrait(crewMember, KerbalRoster.pilotTrait);
-                    //crewMember.trait = "Pilot";
+                    KerbalRoster.SetExperienceTrait(crewMember, KerbalRoster.pilotTrait); // Make the kerbal a pilot (so they can use SAS properly).
+                    KerbalRoster.SetExperienceLevel(crewMember, KerbalRoster.GetExperienceMaxLevel()); // Make them experienced.
+                    crewMember.isBadass = true; // Make them bad-ass (likes nearby explosions).
 
                     // Add them to the part
                     part.AddCrewmemberAt(crewMember, part.protoModuleCrew.Count);
@@ -1563,7 +1572,9 @@ namespace BDArmory.Control
                     {
                         crewMember.KerbalRef.name = cd.name;
                     }
-                    KerbalRoster.SetExperienceTrait(crewMember, KerbalRoster.pilotTrait);
+                    KerbalRoster.SetExperienceTrait(crewMember, KerbalRoster.pilotTrait); // Make the kerbal a pilot (so they can use SAS properly).
+                    KerbalRoster.SetExperienceLevel(crewMember, KerbalRoster.GetExperienceMaxLevel()); // Make them experienced.
+                    crewMember.isBadass = true; // Make them bad-ass (likes nearby explosions).
 
                     crewArray[i++] = crewMember;
                 }
@@ -1589,7 +1600,7 @@ namespace BDArmory.Control
             // Create the config node representation of the ProtoVessel
             ConfigNode protoVesselNode = ProtoVessel.CreateVesselNode(vesselData.name, vesselData.vesselType, vesselData.orbit, 0, partNodes, additionalNodes);
 
-            // Additional seetings for a landed vessel
+            // Additional settings for a landed vessel
             if (!vesselData.orbiting)
             {
                 Vector3d norm = vesselData.body.GetRelSurfaceNVector(vesselData.latitude, vesselData.longitude);

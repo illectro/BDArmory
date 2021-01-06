@@ -42,6 +42,9 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static bool PERFORMANCE_LOGGING = false;
         [BDAPersistantSettingsField] public static bool RUNWAY_PROJECT = false;                    // Enable/disable Runway Project specific enhancements.
         [BDAPersistantSettingsField] public static bool DISABLE_KILL_TIMER = true;                //disables the kill timers.
+        [BDAPersistantSettingsField] public static bool AUTO_ENABLE_VESSEL_SWITCHING = false;     // Automatically enables vessel switching on competition start.
+        [BDAPersistantSettingsField] public static bool AUTONOMOUS_COMBAT_SEATS = false;          // Enable/disable seats without kerbals.
+        [BDAPersistantSettingsField] public static bool DESTROY_UNCONTROLLED_WMS = false;         // Automatically destroy the WM if there's no kerbal or drone core controlling it.
         [BDAPersistantSettingsField] public static bool DUMB_IR_SEEKERS = false;                  // IR missiles will go after hottest thing they can see
         [BDAPersistantSettingsField] public static bool AUTOCATEGORIZE_PARTS = true;
         [BDAPersistantSettingsField] public static bool SHOW_CATEGORIES = true;
@@ -80,10 +83,8 @@ namespace BDArmory.Core
         [BDAPersistantSettingsField] public static float DMG_MULTIPLIER = 100f;
         [BDAPersistantSettingsField] public static float BALLISTIC_DMG_FACTOR = 1.55f;
         [BDAPersistantSettingsField] public static float HITPOINT_MULTIPLIER = 3.0f;
-        [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC_NEW = 0.5f; //1.125f;
+        [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC_NEW = 0.65f;
         [BDAPersistantSettingsField] public static float EXP_DMG_MOD_MISSILE = 6.75f;
-        // [BDAPersistantSettingsField] public static float EXP_DMG_MOD_BALLISTIC = 1.125f;
-        // [BDAPersistantSettingsField] public static float EXP_DMG_MOD_MISSILE = 6.75f;
         [BDAPersistantSettingsField] public static float EXP_IMP_MOD = 0.25f;
         [BDAPersistantSettingsField] public static bool EXTRA_DAMAGE_SLIDERS = false;
 
@@ -136,6 +137,7 @@ namespace BDArmory.Core
         // Tournament settings
         [BDAPersistantSettingsField] public static bool SHOW_TOURNAMENT_OPTIONS = false;           // Show tournament options.
         [BDAPersistantSettingsField] public static string TOURNAMENT_FILES_LOCATION = "";          // Tournament files location (under AutoSpawn).
+        [BDAPersistantSettingsField] public static float TOURNAMENT_DELAY_BETWEEN_HEATS = 10;      // Delay between heats
         [BDAPersistantSettingsField] public static int TOURNAMENT_ROUNDS = 1;                      // Rounds
         [BDAPersistantSettingsField] public static int TOURNAMENT_VESSELS_PER_HEAT = 8;            // Vessels Per Heat
     }

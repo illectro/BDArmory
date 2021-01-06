@@ -28,24 +28,13 @@ namespace BDArmory.Modules
 
                     if (targetDistance <= proximity)
                     {
-                        var count = 0;
-
-                        foreach (Part p in v.parts)
+                        var emp = v.rootPart.FindModuleImplementing<ModuleDrainEC>();
+                        if (emp == null)
                         {
-                            var wmPart = p.FindModuleImplementing<MissileFire>();
-
-                            if (wmPart != null)
-                            {
-                                count = 1;
-                                p.AddModule("ModuleDrainEC");
-                            }
+                            emp = (ModuleDrainEC)v.rootPart.AddModule("ModuleDrainEC");
                         }
-
-                        if (count == 0)
-                        {
-                            if (v.rootPart != null)
-                                v.rootPart.AddModule("ModuleDrainEC");
-                        }
+                        emp.incomingDamage += ((proximity - (float)targetDistance) * 10); //this way craft at edge of blast might only get disabled instead of bricked
+                        emp.softEMP = false; //can bypass DMP damage cap
                     }
                 }
             }

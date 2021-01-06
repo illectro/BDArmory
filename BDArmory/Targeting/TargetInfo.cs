@@ -1,11 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
-using BDArmory.Control;
 using BDArmory.Core.Extension;
 using BDArmory.Misc;
 using BDArmory.Modules;
 using BDArmory.UI;
-using Contracts.Parameters;
 using UnityEngine;
 
 namespace BDArmory.Targeting
@@ -134,7 +132,26 @@ namespace BDArmory.Targeting
                 return false;
             }
         }
+        public bool isDebilitated //has the vessel been EMP'd. Could also be used for more exotic munitions that would disable instead of kill
+        {
+            get
+            {
+                if (!Vessel)
+                {
+                    return false;
+                }
 
+                if (isMissile)
+                {
+                    return false;
+                }
+                else if (weaponManager && weaponManager.debilitated)
+                {
+                    return true;
+                }
+                return false;
+            }
+        }
         void Awake()
         {
             if (!vessel)
@@ -293,6 +310,7 @@ namespace BDArmory.Targeting
 
         public float TargetPriWeapons(MissileFire mf, MissileFire myMf) // Relative number of weapons of target compared to own weapons
         {
+            if (mf?.weaponArray == null) return 0; // The target is dead or has no weapons.
             float targetWeapons = mf.CountWeapons(); // Counts weapons
             float myWeapons = myMf.CountWeapons(); // Counts weapons
             // float targetWeapons = mf.weaponArray.Length - 1; // Counts weapon groups

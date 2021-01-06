@@ -40,7 +40,7 @@ namespace BDArmory.Misc
                 {
                     if (animation.Current == null) continue;
                     AnimationState animationState = animation.Current[animationName];
-                    animationState.speed = 0;
+                    animationState.speed = 0; // FIXME Shouldn't this be 1?
                     animationState.enabled = true;
                     animationState.wrapMode = WrapMode.ClampForever;
                     animation.Current.Blend(animationName);
@@ -56,7 +56,7 @@ namespace BDArmory.Misc
                 {
                     if (animation.Current == null) continue;
                     AnimationState animationState = animation.Current[animationName];
-                    animationState.speed = 0;
+                    animationState.speed = 0; // FIXME Shouldn't this be 1?
                     animationState.enabled = true;
                     animationState.wrapMode = WrapMode.ClampForever;
                     animation.Current.Blend(animationName);

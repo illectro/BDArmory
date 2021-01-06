@@ -517,6 +517,9 @@ namespace BDArmory.UI
 
             debugString.Append($"ECM Lockbreak Strength: " + FlightGlobals.ActiveVessel.gameObject.GetComponent<VesselECMJInfo>()?.lockBreakStrength);
             debugString.Append(Environment.NewLine);
+
+            debugString.Append($"Radar Lockbreak Factor: " + RadarUtils.GetVesselRadarSignature(FlightGlobals.ActiveVessel).radarLockbreakFactor);
+            debugString.Append(Environment.NewLine);
         }
 
         public void SaveGPSTargets(ConfigNode saveNode = null)
@@ -983,7 +986,7 @@ namespace BDArmory.UI
                     }
                 }
             if (BDArmorySettings.DRAW_DEBUG_LABELS)
-                Debug.Log("[BDTargeting]: Selected " + finalTarget.Vessel.GetDisplayName() + " with target score of " + finalTargetScore.ToString("0.00"));
+                Debug.Log("[BDTargeting]: Selected " + (finalTarget != null ? finalTarget.Vessel.GetDisplayName() : "null") + " with target score of " + finalTargetScore.ToString("0.00"));
 
             mf.UpdateTargetPriorityUI(finalTarget);
             return finalTarget;

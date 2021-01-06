@@ -391,6 +391,7 @@ namespace BDArmory.Modules
                                 switch (weaponManager?.selectedWeapon?.GetWeaponClass())
                                 {
                                     case WeaponClasses.Gun:
+                                    case WeaponClasses.Rocket:
                                     case WeaponClasses.DefenseLaser:
                                         var gun = (ModuleWeapon)weaponManager.selectedWeapon;
                                         if ((gun.yawRange == 0 || gun.maxPitch == gun.minPitch) && gun.FiringSolutionVector != null)
@@ -399,17 +400,7 @@ namespace BDArmory.Modules
                                             if (Vector3.Angle((Vector3)gun.FiringSolutionVector, vessel.transform.up) < 20)
                                                 targetDirection = (Vector3)gun.FiringSolutionVector;
                                         }
-                                        break;
-
-                                    case WeaponClasses.Rocket:
-                                        var rocket = (RocketLauncher)weaponManager.selectedWeapon;
-                                        if (rocket.yawRange == 0 || rocket.maxPitch == rocket.minPitch)
-                                        {
-                                            aimingMode = true;
-                                            if (Vector3.Angle((Vector3)rocket.FiringSolutionVector, vessel.transform.up) < 20)
-                                                targetDirection = (Vector3)rocket.FiringSolutionVector;
-                                        }
-                                        break;
+                                        break;                                   
                                 }
                             }
                             targetVelocity = Mathf.Clamp(targetVelocity, PoweredSteering ? CruiseSpeed / 5 : 0, MaxSpeed); // maintain a bit of speed if using powered steering

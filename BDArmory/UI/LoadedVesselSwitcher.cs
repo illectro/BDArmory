@@ -186,6 +186,7 @@ namespace BDArmory.UI
         {
             weaponManagers.Clear();
 
+            if (FlightGlobals.Vessels == null) return;
             using (var v = FlightGlobals.Vessels.GetEnumerator())
                 while (v.MoveNext())
                 {
@@ -979,6 +980,11 @@ namespace BDArmory.UI
                     }
                 }
             }
+        }
+
+        public void EnableAutoVesselSwitching(bool enable)
+        {
+            _autoCameraSwitch = enable;
         }
 
         // Extracted method, so we dont have to call these two lines everywhere

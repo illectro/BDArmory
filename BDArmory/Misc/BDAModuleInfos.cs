@@ -25,7 +25,7 @@ namespace BDArmory.Misc
 
         internal static IEnumerator ReloadModuleInfos()
         {
-            while (Bullets.BulletInfo.bullets == null) // Wait for the field to be non-null to avoid crashes on startup in ModuleWeapon.GetInfo().
+            while (Bullets.BulletInfo.bullets == null || Bullets.RocketInfo.rockets == null) // Wait for the field to be non-null to avoid crashes on startup in ModuleWeapon.GetInfo().
                 yield return null;
             yield return null;
 
