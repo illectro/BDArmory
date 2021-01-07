@@ -171,7 +171,7 @@ namespace BDArmory.Core.Module
                 var structuralMass = density * structuralVolume;
                 // if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[HitpointTracker]: Hitpoint Calc" + part.name + " | structuralMass : " + structuralMass);
                 //3. final calculations
-                hitpoints = structuralMass * hitpointMultiplier * 0.33f;
+                hitpoints = structuralMass * hitpointMultiplier * 0.333f;
 
                 if (hitpoints > 10 * part.mass * 1000f || hitpoints < 0.1f * part.mass * 1000f)
                 {
@@ -180,15 +180,15 @@ namespace BDArmory.Core.Module
                 }
 
                 // SuicidalInsanity B9 patch
-                if (part.name.Contains("B9.Aero.Wing.Procedural")) 
+                if (part.name.Contains("B9.Aero.Wing.Procedural"))
                 {
                     if (part.Modules.Contains("FARWingAerodynamicModel") || part.Modules.Contains("FARControllableSurface"))
-                        {
-                            hitpoints = (part.mass * 1000f) * 3.5f * hitpointMultiplier * 0.33f; //To account for FAR's Strength-mass Scalar.
-                        }
+                    {
+                        hitpoints = (part.mass * 1000f) * 3.5f * hitpointMultiplier * 0.333f; //To account for FAR's Strength-mass Scalar.
+                    }
                     else
                     {
-                        hitpoints = (part.mass * 1000f) * 7f; // since wings are basically a 2d object, lets have mass be our scalar - afterall, 2x the mass will ~= 2x the surfce area
+                        hitpoints = (part.mass * 1000f) * 7f * hitpointMultiplier * 0.333f; // since wings are basically a 2d object, lets have mass be our scalar - afterall, 2x the mass will ~= 2x the surfce area
                     }
                 }
 

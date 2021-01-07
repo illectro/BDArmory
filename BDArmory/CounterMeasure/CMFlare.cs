@@ -11,7 +11,7 @@ namespace BDArmory.CounterMeasure
 {
     public class CMFlare : MonoBehaviour
     {
-        List<KSPParticleEmitter> pEmitters; // = new List<KSPParticleEmitter>();
+        List<KSPParticleEmitter> pEmitters; // = new List<KSPParticleEmitter>(); // pEmitter2 * 2 + pEmitter KSPParticleEmitter per flare.
         List<BDAGaplessParticleEmitter> gaplessEmitters; // = new List<BDAGaplessParticleEmitter>();
 
         Light[] lights;

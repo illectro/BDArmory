@@ -94,7 +94,7 @@ namespace BDArmory.Modules
         public float autoFireTimer = 0;
 
         //used by AI to lead moving targets
-        private float targetDistance;
+        private float targetDistance = 8000f;
         private Vector3 targetPosition;
         private Vector3 targetVelocity;  // local frame velocity
         private Vector3 targetAcceleration; // local frame
@@ -281,6 +281,13 @@ namespace BDArmory.Modules
         private bool spinningDown;
 
         //weapon specifications
+        [KSPField(isPersistant = true)]
+        public bool FireAngleOverride = false;
+
+        [KSPField(advancedTweakable = true, isPersistant = true, guiActive = false, guiActiveEditor = false, guiName = "#LOC_BDArmory_FireingAngle"),
+UI_FloatRange(minValue = 0f, maxValue = 6, stepIncrement = 0.05f, scene = UI_Scene.All, affectSymCounterparts = UI_Scene.All)]
+        float FiringTolerance = 3; //per-weapon override of maxcosfireangle
+        
         [KSPField]
         public float maxTargetingRange = 2000; //max range for raycasting and sighting
 
@@ -290,6 +297,7 @@ namespace BDArmory.Modules
 
         [KSPField]
         public float maxDeviation = 1; //inaccuracy two standard deviations in degrees (two because backwards compatibility :)
+        private float baseDeviation = 1;
 
         [KSPField]
         public float maxEffectiveDistance = 2500; //used by AI to select appropriate weapon
@@ -523,11 +531,11 @@ namespace BDArmory.Modules
         public float detonationRange = -1f; // give ability to set proximity range
 
         [KSPField(isPersistant = true, guiActive = false, guiActiveEditor = true, guiName = "#LOC_BDArmory_MaxDetonationRange"),//Max Detonation Range
-         UI_FloatRange(minValue = 500, maxValue = 8000f, stepIncrement = 5f, scene = UI_Scene.All)]
+        UI_FloatRange(minValue = 500, maxValue = 8000f, stepIncrement = 5f, scene = UI_Scene.All)]
         public float maxAirDetonationRange = 3500; // could probably get rid of this entirely, max engagement range more or less already does this
 
         [KSPField(isPersistant = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_Ammo_Type"),//Ammunition Types
- UI_FloatRange(minValue = 1, maxValue = 999, stepIncrement = 1, scene = UI_Scene.All)]
+        UI_FloatRange(minValue = 1, maxValue = 999, stepIncrement = 1, scene = UI_Scene.All)]
         public float AmmoTypeNum = 1;
 
         [KSPField(isPersistant = true)]
@@ -683,14 +691,13 @@ namespace BDArmory.Modules
             }
             OriginalShortName = shortName;
             WeaponName = shortName;
-            IEnumerator<KSPParticleEmitter> emitter = part.FindModelComponents<KSPParticleEmitter>().AsEnumerable().GetEnumerator();
-            while (emitter.MoveNext())
-            {
-                if (emitter.Current == null) continue;
-                emitter.Current.emit = false;
-                EffectBehaviour.AddParticleEmitter(emitter.Current);
-            }
-            emitter.Dispose();
+            using (var emitter = part.FindModelComponents<KSPParticleEmitter>().AsEnumerable().GetEnumerator())
+                while (emitter.MoveNext())
+                {
+                    if (emitter.Current == null) continue;
+                    emitter.Current.emit = false;
+                    EffectBehaviour.AddParticleEmitter(emitter.Current);
+                }
 
             if (roundsPerMinute >= 1500 || (eWeaponType == WeaponTypes.Laser && !pulseLaser))
             {
@@ -727,7 +734,12 @@ namespace BDArmory.Modules
                 Fields["AmmoTypeNum"].guiActive = false;
                 Fields["AmmoTypeNum"].guiActiveEditor = false;
             }
-
+            UI_FloatRange FAOEditor = (UI_FloatRange)Fields["FiringTolerance"].uiControlEditor;
+            FAOEditor.onFieldChanged = FAOCos;
+            UI_FloatRange FAOFlight = (UI_FloatRange)Fields["FiringTolerance"].uiControlFlight;
+            FAOFlight.onFieldChanged = FAOCos;
+            Fields["FiringTolerance"].guiActive = FireAngleOverride;
+            Fields["FiringTolerance"].guiActiveEditor = FireAngleOverride;
             vessel.Velocity();
             if (BurstFire)
             {
@@ -789,16 +801,15 @@ namespace BDArmory.Modules
 
             }
             muzzleFlashEmitters = new List<KSPParticleEmitter>();
-            IEnumerator<Transform> mtf = part.FindModelTransforms("muzzleTransform").AsEnumerable().GetEnumerator();
-            while (mtf.MoveNext())
-            {
-                if (mtf.Current == null) continue;
-                KSPParticleEmitter kpe = mtf.Current.GetComponent<KSPParticleEmitter>();
-                EffectBehaviour.AddParticleEmitter(kpe);
-                muzzleFlashEmitters.Add(kpe);
-                kpe.emit = false;
-            }
-            mtf.Dispose();
+            using (var mtf = part.FindModelTransforms("muzzleTransform").AsEnumerable().GetEnumerator())
+                while (mtf.MoveNext())
+                {
+                    if (mtf.Current == null) continue;
+                    KSPParticleEmitter kpe = mtf.Current.GetComponent<KSPParticleEmitter>();
+                    EffectBehaviour.AddParticleEmitter(kpe);
+                    muzzleFlashEmitters.Add(kpe);
+                    kpe.emit = false;
+                }
 
             if (HighLogic.LoadedSceneIsFlight)
             {
@@ -834,28 +845,27 @@ namespace BDArmory.Modules
                 shellEjectTransforms = part.FindModelTransforms(shellEjectTransformName);
 
                 //setup emitters
-                IEnumerator<KSPParticleEmitter> pe = part.FindModelComponents<KSPParticleEmitter>().AsEnumerable().GetEnumerator();
-                while (pe.MoveNext())
-                {
-                    if (pe.Current == null) continue;
-                    pe.Current.maxSize *= part.rescaleFactor;
-                    pe.Current.minSize *= part.rescaleFactor;
-                    pe.Current.shape3D *= part.rescaleFactor;
-                    pe.Current.shape2D *= part.rescaleFactor;
-                    pe.Current.shape1D *= part.rescaleFactor;
+                using (var pe = part.FindModelComponents<KSPParticleEmitter>().AsEnumerable().GetEnumerator())
+                    while (pe.MoveNext())
+                    {
+                        if (pe.Current == null) continue;
+                        pe.Current.maxSize *= part.rescaleFactor;
+                        pe.Current.minSize *= part.rescaleFactor;
+                        pe.Current.shape3D *= part.rescaleFactor;
+                        pe.Current.shape2D *= part.rescaleFactor;
+                        pe.Current.shape1D *= part.rescaleFactor;
 
-                    if (pe.Current.useWorldSpace && !oneShotWorldParticles)
-                    {
-                        BDAGaplessParticleEmitter gpe = pe.Current.gameObject.AddComponent<BDAGaplessParticleEmitter>();
-                        gpe.part = part;
-                        gaplessEmitters.Add(gpe);
+                        if (pe.Current.useWorldSpace && !oneShotWorldParticles)
+                        {
+                            BDAGaplessParticleEmitter gpe = pe.Current.gameObject.AddComponent<BDAGaplessParticleEmitter>();
+                            gpe.part = part;
+                            gaplessEmitters.Add(gpe);
+                        }
+                        else
+                        {
+                            EffectBehaviour.AddParticleEmitter(pe.Current);
+                        }
                     }
-                    else
-                    {
-                        EffectBehaviour.AddParticleEmitter(pe.Current);
-                    }
-                }
-                pe.Dispose();
 
                 //setup projectile colors
                 projectileColorC = Misc.Misc.ParseColor255(projectileColor);
@@ -901,6 +911,7 @@ namespace BDArmory.Modules
                         Fields["AmmoTypeNum"].guiActive = false;
                     }
                 }
+                baseDeviation = maxDeviation; //store original MD value
             }
             else if (HighLogic.LoadedSceneIsEditor)
             {
@@ -1014,6 +1025,31 @@ namespace BDArmory.Modules
             }
             Misc.Misc.RefreshAssociatedWindows(part);
         }
+        
+        [KSPEvent(advancedTweakable = true, guiActive = true, guiActiveEditor = true, guiName = "#LOC_BDArmory_FireAngleOverride_Enable", active = true)]//Disable fire angle override
+        public void ToggleOverrideAngle()
+        {
+            FireAngleOverride = !FireAngleOverride;
+
+            if (FireAngleOverride == false)
+            {
+                Events["ToggleOverrideAngle"].guiName = Localizer.Format("#LOC_BDArmory_FireAngleOverride_Enable");// Enable Firing Angle Override
+            }
+            else
+            {
+                Events["ToggleOverrideAngle"].guiName = Localizer.Format("#LOC_BDArmory_FireAngleOverride_Disable");// Disable Firing Angle Override
+            }
+
+            Fields["FiringTolerance"].guiActive = FireAngleOverride;
+            Fields["FiringTolerance"].guiActiveEditor = FireAngleOverride;
+
+            Misc.Misc.RefreshAssociatedWindows(part);
+        }
+        void FAOCos(BaseField field, object obj)
+        {
+            maxAutoFireCosAngle = Mathf.Cos((FiringTolerance * Mathf.Deg2Rad));
+        }
+        
         void Update()
         {
             if (HighLogic.LoadedSceneIsFlight && FlightGlobals.ready && !vessel.packed && vessel.IsControllable)
@@ -1105,6 +1141,7 @@ namespace BDArmory.Modules
                 {
                     if (weaponState != WeaponStates.PoweringDown || weaponState != WeaponStates.Disabled)
                     {
+                        if (BDArmorySettings.DRAW_DEBUG_LABELS) Debug.Log("[ModuleWeapon]: Vessel is uncontrollable, disabling weapon " + part.name);
                         DisableWeapon();
                     }
                     return;
@@ -1358,7 +1395,7 @@ namespace BDArmory.Modules
                                 timeFired = Time.time - iTime;
 
                                 Vector3 firedVelocity =
-                                    VectorUtils.GaussianDirectionDeviation(fireTransform.forward, (maxDeviation * (ProjectileCount / 2)) / 2) * bulletVelocity; //cannistershot is more inaccurate than slug
+                                    VectorUtils.GaussianDirectionDeviation(fireTransform.forward, (maxDeviation / 2)) * bulletVelocity; 
 
                                 pBullet.currentVelocity = (part.rb.velocity + Krakensbane.GetFrameVelocityV3f()) + firedVelocity; // use the real velocity, w/o offloading
                                 firedBullet.transform.position += (part.rb.velocity + Krakensbane.GetFrameVelocityV3f()) * Time.fixedDeltaTime
@@ -2221,10 +2258,16 @@ namespace BDArmory.Modules
                     return;
                 }
             }
-
+            Transform fireTransform = fireTransforms[0];
+            Vector3 finalTarget;
+            if (eWeaponType == WeaponTypes.Rocket && rocketPod)
+            {
+                fireTransform = rockets[0].parent; // support for legacy RLs
+            }
             if (!slaved && !aiControlled && (yawRange > 0 || maxPitch - minPitch > 0))
             {
                 //MouseControl
+                float tgtDistance;
                 Vector3 mouseAim = new Vector3(Input.mousePosition.x / Screen.width, Input.mousePosition.y / Screen.height,
                     0);
                 Ray ray = FlightCamera.fetch.mainCamera.ViewportPointToRay(mouseAim);
@@ -2244,11 +2287,14 @@ namespace BDArmory.Modules
                         targetPosition = ray.direction * maxTargetingRange +
                                          FlightCamera.fetch.mainCamera.transform.position;
                     }
+                    tgtDistance = Vector3.Distance(hit.point, fireTransform.parent.position);
                 }
                 else
                 {
                     targetPosition = (ray.direction * (maxTargetingRange + (FlightCamera.fetch.Distance * 0.75f))) +
                                      FlightCamera.fetch.mainCamera.transform.position;
+                    tgtDistance = maxTargetingRange;
+                    
                     if (visualTargetVessel != null && visualTargetVessel.loaded)
                     {
                         targetPosition = ray.direction *
@@ -2257,20 +2303,23 @@ namespace BDArmory.Modules
                                          FlightCamera.fetch.mainCamera.transform.position;
                     }
                 }
+                if (eWeaponType == WeaponTypes.Rocket) //rocket turret manual aiming
+                {
+                    finalTarget = targetPosition;
+                    targetDistance = tgtDistance;
+                    finalTarget += trajectoryOffset;
+                }
             }
 
             //aim assist
-            Vector3 finalTarget = targetPosition;
+            finalTarget = targetPosition;
             Vector3 originalTarget = targetPosition;
-            Vector3 pointingDirection = fireTransforms[0].forward;
-            targetDistance = Vector3.Distance(finalTarget, fireTransforms[0].position);
-            relativeVelocity = targetVelocity - part.rb.velocity;
+            targetDistance = Vector3.Distance(targetPosition, fireTransform.parent.position);
 
-            if (BDArmorySettings.AIM_ASSIST || aiControlled)
-            {
-                if (eWeaponType == WeaponTypes.Ballistic) //Gun targeting
-                {
-                    float effectiveVelocity = bulletVelocity;
+           if ((BDArmorySettings.AIM_ASSIST || aiControlled) && eWeaponType == WeaponTypes.Ballistic)//Gun targeting
+            {                    
+                float effectiveVelocity = bulletVelocity;
+                relativeVelocity = targetVelocity - part.rb.velocity;
                     Quaternion.FromToRotation(targetAccelerationPrevious, targetAcceleration).ToAngleAxis(out float accelDAngle, out Vector3 accelDAxis);
                     Vector3 leadTarget = targetPosition;
 
@@ -2325,15 +2374,15 @@ namespace BDArmory.Modules
 #endif
                         }
                     }
-                }
-                //removed the detonationange += UnityEngine.random, that gets called every frame and just causes the prox fuze range to wander
-                if (eWeaponType == WeaponTypes.Rocket) //rocket aiming
-                {
-                    finalTarget += trajectoryOffset;
-                    finalTarget += targetVelocity * predictedFlightTime;
-                    finalTarget += 0.5f * targetAcceleration * predictedFlightTime * predictedFlightTime;
-                }
-                targetDistance = Vector3.Distance(finalTarget, fireTransforms[0].position);
+                    targetDistance = Vector3.Distance(finalTarget, fireTransforms[0].position);                
+            }
+            if (aiControlled && eWeaponType == WeaponTypes.Rocket)//non-turret and/or AI controlled Rocket targeting,
+                //if (weaponManager && (weaponManager.slavingTurrets || weaponManager.guardMode || weaponManager.AI?.pilotEnabled == true))
+            {
+                targetDistance = Vector3.Distance(targetPosition, fireTransform.parent.position);
+                finalTarget += trajectoryOffset;
+                finalTarget += targetVelocity * predictedFlightTime;
+                finalTarget += 0.5f * targetAcceleration * predictedFlightTime * predictedFlightTime;
             }
             //airdetonation
             if (airDetonation)
@@ -2425,7 +2474,8 @@ namespace BDArmory.Modules
                     pointPositions.Add(simCurrPos);
 
                     float atmosMultiplier = Mathf.Clamp01(2.5f * (float)FlightGlobals.getAtmDensity(vessel.staticPressurekPa, vessel.externalTemperature, vessel.mainBody));
-
+                    bool slaved = turret && weaponManager && (weaponManager.slavingTurrets || weaponManager.guardMode);
+                    
                     while (simulating)
                     {
                         RaycastHit hit;
@@ -2477,14 +2527,12 @@ namespace BDArmory.Modules
                                 {
                                     bulletPrediction = hit.point;
                                     simulating = false;
-                                    break;
                                 }
                             }
                             else if (FlightGlobals.getAltitudeAtPos(simCurrPos) < 0)
                             {
                                 bulletPrediction = simCurrPos;
                                 simulating = false;
-                                break;
                             }
                         }
                         simPrevPos = simCurrPos;
@@ -2544,8 +2592,11 @@ namespace BDArmory.Modules
             //autofiring with AI
             if (targetAcquired && aiControlled)
             {
-
                 Transform fireTransform = fireTransforms[0];
+                if (eWeaponType == WeaponTypes.Rocket && rocketPod)
+                {
+                    fireTransform = rockets[0].parent; // support for legacy RLs
+                }
 
                 Vector3 targetRelPos = (finalAimTarget) - fireTransform.position;
                 Vector3 aimDirection = fireTransform.forward;
@@ -2575,10 +2626,16 @@ namespace BDArmory.Modules
                 }
                 else // rockets
                 {
-                    if (BDATargetManager.CheckSafeToFireGuns(weaponManager, aimDirection, 1000, 0.999962f))
+                    if (BDATargetManager.CheckSafeToFireGuns(weaponManager, aimDirection, 1000, 0.999848f))
                     {
-                        if (Vector3.Distance(finalAimTarget, fireTransform.position) > blastRadius)
-                            autoFire = Vector3.Angle(targetRelPos, aimDirection) < 1f; //rockets already calculate where target will be
+                        if ((Vector3.Distance(finalAimTarget, fireTransform.position) > blastRadius) && (targetCosAngle >= maxAutoFireCosAngle))
+                        {
+                            autoFire = true; //rockets already calculate where target will be
+                        }
+                        else
+                        {
+                            autoFire = false;
+                        }
                     }
                 }
             }
@@ -3066,9 +3123,27 @@ namespace BDArmory.Modules
             {
                 bulletInfo = BulletInfo.bullets[currentType];
                 guiAmmoTypeString = " "; //reset name
+                maxDeviation = baseDeviation; //reset modified deviation
+                caliber = bulletInfo.caliber;
+                bulletVelocity = bulletInfo.bulletVelocity;
+                bulletMass = bulletInfo.bulletMass;
+                ProjectileCount = bulletInfo.subProjectileCount;
+                bulletDragTypeName = bulletInfo.bulletDragTypeName;
+                projectileColorC = Misc.Misc.ParseColor255(bulletInfo.projectileColor);
+                startColorC = Misc.Misc.ParseColor255(bulletInfo.startColor);
+                fadeColor = bulletInfo.fadeColor;
+                ParseBulletDragType();
+                ParseBulletFuzeType(bulletInfo.fuzeType);
+                tntMass = bulletInfo.tntMass;
+                SetInitialDetonationDistance();        
+                tracerStartWidth = caliber / 300;
+                tracerEndWidth = caliber / 750;
+                nonTracerWidth = caliber / 500;
+                SelectedAmmoType = bulletInfo.name; //store selected ammo name as string for retrieval by web orc filter/later GUI implementation
                 if (bulletInfo.subProjectileCount > 1)
                 {
                     guiAmmoTypeString = Localizer.Format("#LOC_BDArmory_Ammo_Shot") + " ";
+                    maxDeviation *= Mathf.Clamp(bulletInfo.subProjectileCount, 2, 5); //modify deviation if shot vs slug
                 }
                 if (bulletInfo.apBulletMod > 1)
                 {
@@ -3089,23 +3164,6 @@ namespace BDArmory.Modules
                 {
                     guiAmmoTypeString += Localizer.Format("#LOC_BDArmory_Ammo_Slug");
                 }
-
-                caliber = bulletInfo.caliber;
-                bulletVelocity = bulletInfo.bulletVelocity;
-                bulletMass = bulletInfo.bulletMass;
-                ProjectileCount = bulletInfo.subProjectileCount;
-                bulletDragTypeName = bulletInfo.bulletDragTypeName;
-                projectileColorC = Misc.Misc.ParseColor255(bulletInfo.projectileColor);
-                startColorC = Misc.Misc.ParseColor255(bulletInfo.startColor);
-                fadeColor = bulletInfo.fadeColor;
-                ParseBulletDragType();
-                ParseBulletFuzeType(bulletInfo.fuzeType);
-                tntMass = bulletInfo.tntMass;
-                SetInitialDetonationDistance();
-                tracerStartWidth = caliber / 300;
-                tracerEndWidth = caliber / 750;
-                nonTracerWidth = caliber / 500;
-                SelectedAmmoType = bulletInfo.name; //store selected ammo name as string for retrieval by web orc filter/later GUI implementation
             }
             if (eWeaponType == WeaponTypes.Rocket)
             {
